@@ -120,10 +120,16 @@ CLASS {{API_CLASS}} IMPLEMENTATION.
 
 
   METHOD {{API_METHOD}}.
-    LOOP AT it_data INTO DATA(ls_data).
-      DATA(ls_result) = VALUE ty_result( row_id = ls_data-row_id
-                                          " description = ls_data-fixed_asset_description
-                                        ).
+    " Khai báo tường minh, không dùng DATA(...) inline (xem SKILL.md)
+    DATA ls_data    TYPE ty_input.
+    DATA ls_result  TYPE ty_result.
+    DATA lv_payload TYPE string.
+    DATA lv_body    TYPE string.
+
+    LOOP AT it_data INTO ls_data.
+      CLEAR ls_result.
+      ls_result-row_id = ls_data-row_id.
+      " ls_result-description = ls_data-fixed_asset_description.
 
       " Validate tối thiểu trước khi gọi API (field bắt buộc mà thiếu thì API chắc chắn lỗi)
       " IF ls_data-<required_field> IS INITIAL.
@@ -133,10 +139,10 @@ CLASS {{API_CLASS}} IMPLEMENTATION.
       "   CONTINUE.
       " ENDIF.
 
-      DATA(lv_payload) = build_payload( is_data       = ls_data
-                                         it_ledger_cfg = it_ledger_cfg ).
+      lv_payload = build_payload( is_data       = ls_data
+                                  it_ledger_cfg = it_ledger_cfg ).
 
-      DATA(lv_body) = zcl_call_api=>call_api(
+      lv_body = zcl_call_api=>call_api(
                          iv_body        = lv_payload
                          iv_contentType = 'application/json;odata.metadata=minimal;charset=utf-8'
                          iv_endpoint    = gc_endpoint
@@ -228,7 +234,11 @@ CLASS {{API_CLASS}} IMPLEMENTATION.
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 
-    rv_text = COND #( WHEN ls_wrap-error-message IS NOT INITIAL THEN ls_wrap-error-message ELSE iv_body ).
+    IF ls_wrap-error-message IS NOT INITIAL.
+      rv_text = ls_wrap-error-message.
+    ELSE.
+      rv_text = iv_body.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -238,13 +248,21 @@ CLASS {{API_CLASS}} IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    rv_out = COND #( WHEN iv_raw = abap_true THEN |"{ iv_key }":{ iv_value }|
-                      ELSE |"{ iv_key }":"{ json_escape( iv_value ) }"| ).
+    IF iv_raw = abap_true.
+      rv_out = |"{ iv_key }":{ iv_value }|.
+    ELSE.
+      rv_out = |"{ iv_key }":"{ json_escape( iv_value ) }"|.
+    ENDIF.
   ENDMETHOD.
 
 
   METHOD as_object.
-    DATA(lt_non_blank) = VALUE tt_fragment( FOR frag IN it_fragments WHERE ( table_line IS NOT INITIAL ) ( frag ) ).
+    DATA lt_non_blank TYPE tt_fragment.
+    DATA lv_frag      TYPE string.
+
+    LOOP AT it_fragments INTO lv_frag WHERE table_line IS NOT INITIAL.
+      APPEND lv_frag TO lt_non_blank.
+    ENDLOOP.
     rv_out = |\{{ concat_lines_of( table = lt_non_blank sep = ',' ) }\}|.
   ENDMETHOD.
 
@@ -259,7 +277,11 @@ CLASS {{API_CLASS}} IMPLEMENTATION.
 
 
   METHOD format_bool.
-    rv_out = COND #( WHEN iv_bool = abap_true THEN 'true' ELSE 'false' ).
+    IF iv_bool = abap_true.
+      rv_out = 'true'.
+    ELSE.
+      rv_out = 'false'.
+    ENDIF.
   ENDMETHOD.
 
 

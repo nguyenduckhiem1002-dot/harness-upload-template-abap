@@ -28,15 +28,17 @@ CLASS zcl_so_schedline_upload DEFINITION
         update TYPE c LENGTH 1 VALUE 'U',
       END OF action.
 
+    TYPES ty_quantity TYPE p LENGTH 8 DECIMALS 3.
+
     TYPES:
       BEGIN OF ty_input,
-        row_id           TYPE i,                     " số dòng, chỉ dùng để merge kết quả
-        action           TYPE c LENGTH 1,            " I = insert, U = update quantity
-        sales_order      TYPE vbeln_va,              " A  (format nội bộ có 0 đầu, class tự bỏ khi build URL)
-        sales_order_item TYPE posnr_va,              " B
-        schedule_line    TYPE etenr,                 " C  (rỗng khi insert)
-        delivery_date    TYPE d,                     " D  -> RequestedDeliveryDate
-        order_quantity   TYPE p LENGTH 8 DECIMALS 3, " E  -> ScheduleLineOrderQuantity
+        row_id           TYPE i,              " số dòng, chỉ dùng để merge kết quả
+        action           TYPE c LENGTH 1,     " I = insert, U = update quantity
+        sales_order      TYPE vbeln_va,       " A  (format nội bộ có 0 đầu, class tự bỏ khi build URL)
+        sales_order_item TYPE posnr_va,       " B
+        schedule_line    TYPE etenr,          " C  (rỗng khi insert)
+        delivery_date    TYPE d,              " D  -> RequestedDeliveryDate
+        order_quantity   TYPE ty_quantity,    " E  -> ScheduleLineOrderQuantity
       END OF ty_input,
       tt_input TYPE STANDARD TABLE OF ty_input WITH EMPTY KEY.
 
@@ -84,6 +86,20 @@ CLASS zcl_so_schedline_upload DEFINITION
         d TYPE ty_entity,
       END OF ty_v2_single.
 
+    " OData V2 error body: { "error": { "code": "...", "message": { "lang": "en", "value": "..." } } }
+    TYPES:
+      BEGIN OF ty_v2_msg,
+        lang  TYPE string,
+        value TYPE string,
+      END OF ty_v2_msg,
+      BEGIN OF ty_v2_error,
+        code    TYPE string,
+        message TYPE ty_v2_msg,
+      END OF ty_v2_error,
+      BEGIN OF ty_v2_error_wrap,
+        error TYPE ty_v2_error,
+      END OF ty_v2_error_wrap.
+
     CONSTANTS gc_content_type TYPE string VALUE 'application/json'.
 
     CLASS-METHODS validate
@@ -107,13 +123,13 @@ CLASS zcl_so_schedline_upload DEFINITION
     "! GET 1 entity V2, parse phần "d". rv_ok = abap_false khi status <> 200.
     CLASS-METHODS get_entity
       IMPORTING
-        iv_path          TYPE string
+        iv_path      TYPE string
       EXPORTING
-        es_entity        TYPE ty_entity
-        ev_status        TYPE i
-        ev_error         TYPE string
+        es_entity    TYPE ty_entity
+        ev_status    TYPE i
+        ev_error     TYPE string
       RETURNING
-        VALUE(rv_ok)     TYPE abap_bool.
+        VALUE(rv_ok) TYPE abap_bool.
 
     CLASS-METHODS do_update
       IMPORTING
@@ -142,7 +158,7 @@ CLASS zcl_so_schedline_upload DEFINITION
 
     CLASS-METHODS format_qty
       IMPORTING
-        iv_qty        TYPE ty_input-order_quantity
+        iv_qty        TYPE ty_quantity
       RETURNING
         VALUE(rv_out) TYPE string.
 
@@ -185,14 +201,19 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD process_schedule_lines.
-    LOOP AT it_data INTO DATA(ls_data).
-      DATA(ls_result) = VALUE ty_result( row_id           = ls_data-row_id
-                                          sales_order      = ext( ls_data-sales_order )
-                                          sales_order_item = ext( ls_data-sales_order_item )
-                                          schedule_line    = ext( ls_data-schedule_line ) ).
+    DATA ls_data   TYPE ty_input.
+    DATA ls_result TYPE ty_result.
+    DATA lv_error  TYPE string.
+
+    LOOP AT it_data INTO ls_data.
+      CLEAR ls_result.
+      ls_result-row_id           = ls_data-row_id.
+      ls_result-sales_order      = ext( ls_data-sales_order ).
+      ls_result-sales_order_item = ext( ls_data-sales_order_item ).
+      ls_result-schedule_line    = ext( ls_data-schedule_line ).
 
       " Chặn sớm các dòng thiếu dữ liệu bắt buộc, không gọi API
-      DATA(lv_error) = validate( ls_data ).
+      lv_error = validate( ls_data ).
       IF lv_error IS NOT INITIAL.
         ls_result-success = abap_false.
         ls_result-message = lv_error.
@@ -227,13 +248,23 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD do_update.
-    DATA(lv_path) = schedline_path( is_data ).
+    DATA lv_path       TYPE string.
+    DATA ls_current    TYPE ty_entity.
+    DATA lv_get_status TYPE i.
+    DATA lv_get_error  TYPE string.
+    DATA lv_ok         TYPE abap_bool.
+    DATA lv_payload    TYPE string.
+    DATA lv_body       TYPE string.
+    DATA lv_status     TYPE i.
+
+    lv_path = schedline_path( is_data ).
 
     " ── 1. GET schedule line hiện tại: kiểm tra tồn tại + lấy unit/ngày ──
-    IF get_entity( EXPORTING iv_path   = lv_path
-                   IMPORTING es_entity = DATA(ls_current)
-                             ev_status = DATA(lv_get_status)
-                             ev_error  = DATA(lv_get_error) ) = abap_false.
+    lv_ok = get_entity( EXPORTING iv_path   = lv_path
+                        IMPORTING es_entity = ls_current
+                                  ev_status = lv_get_status
+                                  ev_error  = lv_get_error ).
+    IF lv_ok = abap_false.
       cs_result-success     = abap_false.
       cs_result-http_status = lv_get_status.
       cs_result-message     = |GET schedule line failed: { lv_get_error }|.
@@ -241,16 +272,16 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
     ENDIF.
 
     " ── 2. PATCH số lượng (unit lấy từ GET, ngày: Excel nếu có, không thì giữ ngày hiện tại) ──
-    DATA(lv_payload) = as_object( build_quantity_fragments( is_data = is_data is_ref = ls_current ) ).
+    lv_payload = as_object( build_quantity_fragments( is_data = is_data is_ref = ls_current ) ).
 
     " iv_endpoint = iv_uri = path entity -> preflight GET (x-csrf-token: fetch) chạy trên đúng entity
-    DATA(lv_body) = zcl_call_api=>call_api(
-                      iv_body        = lv_payload
-                      iv_contentType = gc_content_type
-                      iv_endpoint    = lv_path
-                      iv_uri         = lv_path
-                      iv_method      = 'PATCH' ).
-    DATA(lv_status) = zcl_call_api=>code.
+    lv_body = zcl_call_api=>call_api(
+                iv_body        = lv_payload
+                iv_contentType = gc_content_type
+                iv_endpoint    = lv_path
+                iv_uri         = lv_path
+                iv_method      = 'PATCH' ).
+    lv_status = zcl_call_api=>code.
 
     cs_result-http_status         = lv_status.
     cs_result-order_quantity_unit = ls_current-order_quantity_unit.
@@ -267,13 +298,25 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD do_insert.
-    DATA(lv_item_path) = item_path( is_data ).
+    DATA lv_item_path  TYPE string.
+    DATA ls_item       TYPE ty_entity.
+    DATA lv_get_status TYPE i.
+    DATA lv_get_error  TYPE string.
+    DATA lv_ok         TYPE abap_bool.
+    DATA lt_frag       TYPE tt_fragment.
+    DATA lv_payload    TYPE string.
+    DATA lv_body       TYPE string.
+    DATA lv_status     TYPE i.
+    DATA ls_created    TYPE ty_v2_single.
+
+    lv_item_path = item_path( is_data ).
 
     " ── 1. GET item: kiểm tra tồn tại + lấy unit của item ──
-    IF get_entity( EXPORTING iv_path   = lv_item_path
-                   IMPORTING es_entity = DATA(ls_item)
-                             ev_status = DATA(lv_get_status)
-                             ev_error  = DATA(lv_get_error) ) = abap_false.
+    lv_ok = get_entity( EXPORTING iv_path   = lv_item_path
+                        IMPORTING es_entity = ls_item
+                                  ev_status = lv_get_status
+                                  ev_error  = lv_get_error ).
+    IF lv_ok = abap_false.
       cs_result-success     = abap_false.
       cs_result-http_status = lv_get_status.
       cs_result-message     = |GET sales order item failed: { lv_get_error }|.
@@ -282,18 +325,18 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
     " ── 2. POST schedule line mới qua navigation to_ScheduleLine ──
     " TODO: chưa test bằng curl. Nếu API không cho POST, thay bằng deep PATCH item hoặc báo lỗi rõ.
-    DATA(lt_frag) = build_quantity_fragments( is_data = is_data is_ref = ls_item ).
+    lt_frag = build_quantity_fragments( is_data = is_data is_ref = ls_item ).
     INSERT field( iv_key = 'SalesOrderItem' iv_value = ext( is_data-sales_order_item ) ) INTO lt_frag INDEX 1.
     INSERT field( iv_key = 'SalesOrder'     iv_value = ext( is_data-sales_order ) )      INTO lt_frag INDEX 1.
-    DATA(lv_payload) = as_object( lt_frag ).
+    lv_payload = as_object( lt_frag ).
 
-    DATA(lv_body) = zcl_call_api=>call_api(
-                      iv_body        = lv_payload
-                      iv_contentType = gc_content_type
-                      iv_endpoint    = lv_item_path
-                      iv_uri         = |{ lv_item_path }/to_ScheduleLine|
-                      iv_method      = 'POST' ).
-    DATA(lv_status) = zcl_call_api=>code.
+    lv_body = zcl_call_api=>call_api(
+                iv_body        = lv_payload
+                iv_contentType = gc_content_type
+                iv_endpoint    = lv_item_path
+                iv_uri         = |{ lv_item_path }/to_ScheduleLine|
+                iv_method      = 'POST' ).
+    lv_status = zcl_call_api=>code.
 
     cs_result-http_status         = lv_status.
     cs_result-order_quantity_unit = ls_item-order_quantity_unit.
@@ -301,7 +344,6 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
     CASE lv_status.
       WHEN 201.
         cs_result-success = abap_true.
-        DATA ls_created TYPE ty_v2_single.
         TRY.
             /ui2/cl_json=>deserialize(
               EXPORTING json        = lv_body
@@ -319,14 +361,18 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD get_entity.
+    DATA lv_body TYPE string.
+    DATA ls_wrap TYPE ty_v2_single.
+    DATA lx_json TYPE REF TO cx_root.
+
     CLEAR: es_entity, ev_error.
 
-    DATA(lv_body) = zcl_call_api=>call_api(
-                      iv_body        = ``
-                      iv_contentType = gc_content_type
-                      iv_endpoint    = gc_service
-                      iv_uri         = iv_path
-                      iv_method      = 'GET' ).
+    lv_body = zcl_call_api=>call_api(
+                iv_body        = ``
+                iv_contentType = gc_content_type
+                iv_endpoint    = gc_service
+                iv_uri         = iv_path
+                iv_method      = 'GET' ).
     ev_status = zcl_call_api=>code.
 
     IF ev_status <> 200.
@@ -335,13 +381,12 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    DATA ls_wrap TYPE ty_v2_single.
     TRY.
         /ui2/cl_json=>deserialize(
           EXPORTING json        = lv_body
                     pretty_name = /ui2/cl_json=>pretty_mode-camel_case
           CHANGING  data        = ls_wrap ).
-      CATCH cx_root INTO DATA(lx_json).
+      CATCH cx_root INTO lx_json.
         ev_error = |Cannot parse response: { lx_json->get_text( ) }|.
         rv_ok = abap_false.
         RETURN.
@@ -353,6 +398,8 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD build_quantity_fragments.
+    DATA lv_date TYPE string.
+
     " Payload PATCH đã xác nhận bằng request thật:
     " { "ScheduleLineOrderQuantity": "20", "OrderQuantityUnit": "VIE", "OrderQuantitySAPUnit": "VIE",
     "   "OrderQuantityISOUnit": "VIE", "RequestedDeliveryDate": "/Date(1761177600000)/" }
@@ -362,9 +409,11 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
     APPEND field( iv_key = 'OrderQuantityISOUnit'      iv_value = is_ref-order_quantity_iso_unit )       TO rt_frag.
 
     " Ngày giao: cột D nếu có, không thì giữ nguyên ngày đang có trên schedule line
-    DATA(lv_date) = COND string( WHEN is_data-delivery_date IS NOT INITIAL
-                                   THEN format_date_v2( is_data-delivery_date )
-                                   ELSE is_ref-requested_delivery_date ).
+    IF is_data-delivery_date IS NOT INITIAL.
+      lv_date = format_date_v2( is_data-delivery_date ).
+    ELSE.
+      lv_date = is_ref-requested_delivery_date.
+    ENDIF.
     APPEND field( iv_key = 'RequestedDeliveryDate' iv_value = lv_date ) TO rt_frag.
   ENDMETHOD.
 
@@ -394,38 +443,32 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
 
 
   METHOD format_date_v2.
+    DATA lv_epoch TYPE d VALUE '19700101'.
+    DATA lv_days  TYPE i.
+    DATA lv_ms    TYPE int8.
+
     IF iv_date IS INITIAL.
       rv_out = ``.
       RETURN.
     ENDIF.
     " số ngày từ 1970-01-01 * 86.400.000 ms; ví dụ 2025-10-23 -> /Date(1761177600000)/
-    DATA lv_ms TYPE int8.
-    lv_ms = iv_date - CONV d( '19700101' ).
-    lv_ms = lv_ms * 86400000.
-    rv_out = |/Date({ lv_ms })/|.
+    lv_days = iv_date - lv_epoch.
+    lv_ms   = lv_days.
+    lv_ms   = lv_ms * 86400000.
+    rv_out  = |/Date({ lv_ms })/|.
   ENDMETHOD.
 
 
   METHOD extract_error_message.
-    " OData V2 error body: { "error": { "code": "...", "message": { "lang": "en", "value": "..." } } }
-    TYPES:
-      BEGIN OF ty_v2_msg,
-        lang  TYPE string,
-        value TYPE string,
-      END OF ty_v2_msg,
-      BEGIN OF ty_v2_error,
-        code    TYPE string,
-        message TYPE ty_v2_msg,
-      END OF ty_v2_error,
-      BEGIN OF ty_v2_error_wrap,
-        error TYPE ty_v2_error,
-      END OF ty_v2_error_wrap.
-
     DATA ls_wrap TYPE ty_v2_error_wrap.
 
     IF iv_status = 0.
       " lỗi transport/local trong zcl_call_api, không phải HTTP status
-      rv_text = COND #( WHEN zcl_call_api=>reason IS NOT INITIAL THEN zcl_call_api=>reason ELSE iv_body ).
+      IF zcl_call_api=>reason IS NOT INITIAL.
+        rv_text = zcl_call_api=>reason.
+      ELSE.
+        rv_text = iv_body.
+      ENDIF.
       RETURN.
     ENDIF.
 
@@ -436,11 +479,13 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
       CATCH cx_root ##NO_HANDLER.
     ENDTRY.
 
-    rv_text = COND #( WHEN ls_wrap-error-message-value IS NOT INITIAL
-                        THEN ls_wrap-error-message-value
-                      WHEN iv_body IS NOT INITIAL
-                        THEN iv_body
-                      ELSE |HTTP { iv_status }| ).
+    IF ls_wrap-error-message-value IS NOT INITIAL.
+      rv_text = ls_wrap-error-message-value.
+    ELSEIF iv_body IS NOT INITIAL.
+      rv_text = iv_body.
+    ELSE.
+      rv_text = |HTTP { iv_status }|.
+    ENDIF.
   ENDMETHOD.
 
 
@@ -450,13 +495,21 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    rv_out = COND #( WHEN iv_raw = abap_true THEN |"{ iv_key }":{ iv_value }|
-                      ELSE |"{ iv_key }":"{ json_escape( iv_value ) }"| ).
+    IF iv_raw = abap_true.
+      rv_out = |"{ iv_key }":{ iv_value }|.
+    ELSE.
+      rv_out = |"{ iv_key }":"{ json_escape( iv_value ) }"|.
+    ENDIF.
   ENDMETHOD.
 
 
   METHOD as_object.
-    DATA(lt_non_blank) = VALUE tt_fragment( FOR frag IN it_fragments WHERE ( table_line IS NOT INITIAL ) ( frag ) ).
+    DATA lt_non_blank TYPE tt_fragment.
+    DATA lv_frag      TYPE string.
+
+    LOOP AT it_fragments INTO lv_frag WHERE table_line IS NOT INITIAL.
+      APPEND lv_frag TO lt_non_blank.
+    ENDLOOP.
     rv_out = |\{{ concat_lines_of( table = lt_non_blank sep = ',' ) }\}|.
   ENDMETHOD.
 

@@ -81,11 +81,15 @@ Service definition / service binding (OData V4 UI) vẫn phải expose `ZC_M_<AP
 - **Giới hạn**: tối đa 100 dòng dữ liệu / file (message lỗi nếu vượt), PostConfirm chạy đồng bộ (không schedule job).
 - **Template Excel**: 4 dòng header (nhóm cột / tên cột / R-O / độ dài), dữ liệu từ dòng 5, sheet dữ liệu ở vị trí 1, các sheet sau chỉ là danh mục tra cứu.
 - **Message class**: thay `Z_FILE_MSG` / số message trong template bằng message class thật của app (001 = quá 100 dòng, 002 = upload thành công).
+- **Khai báo biến trong ABAP**: khai báo tường minh `DATA lv_x TYPE <kiểu>` ở đầu method, hạn chế `DATA(...)`/`FINAL(...)` inline để tránh lỗi conversion ngầm và lỗi cú pháp. Inline CHỈ chấp nhận ở `RESULT DATA(...)`, `FAILED DATA(...)`, `REPORTED DATA(...)`, `MAPPED DATA(...)` của READ/MODIFY ENTITIES, `FIELD-SYMBOL(...)` trong READ TABLE/LOOP, và chuỗi XCO `FINAL(lo_xlsx)`. KHÔNG dùng inline trong `IMPORTING`/`RECEIVING` của method gọi bên trong biểu thức `IF`/`WHILE` (lỗi "inline declaration not possible in this position"); gọi method ra biến trước rồi mới `IF`. Ưu tiên `IF/ELSE`, `CASE` thay `COND #( )` khi gán biến có kiểu cụ thể.
+- **CDS view entity**: KHÔNG dùng `@Semantics.unitOfMeasure: true` / `@Semantics.currencyCode: true` trên field unit/currency (lỗi "not allowed in view entities"); kiểu `abap.unit`/`abap.cuky` của table đã đủ. Trên field số lượng/tiền vẫn dùng `@Semantics.quantity.unitOfMeasure: 'UnitField'` / `@Semantics.amount.currencyCode: 'CurrencyField'`.
 - **Comment trong source**: table DDL (`define table`) KHÔNG có comment nào, kể cả `//` cuối dòng field; chỉ dùng `@EndUserText.label`. CDS view / BDEF / MDE / abstract entity: comment `//` được nhưng chỉ ASCII (tiếng Anh, không dấu). ABAP class: comment `"` tiếng Việt được.
 
 ## Những lỗi đã gặp, đừng lặp lại
 
 - Draft table > 16 ký tự -> activate lỗi. Dùng `ztb_d_<x>_d`, không dùng `ztb_d_<app>_<x>_d`.
+- `IF get_entity( IMPORTING es_x = DATA(ls_x) ... ) = abap_false.` -> lỗi `The inline declaration "DATA(LS_X)" is not possible in this position`. Khai báo `DATA ls_x TYPE ...` rồi `lv_ok = get_entity( ... )` rồi `IF lv_ok = abap_false`.
+- `@Semantics.unitOfMeasure: true` trong `define view entity` -> lỗi `Annotation Semantics.unitOfMeasure is not allowed in view entities`. Bỏ annotation, field đã là `abap.unit`.
 - Comment `// ...` trên dòng field của table DDL -> lỗi `Unexpected token "/". Expected was ":"`, có dấu tiếng Việt -> thêm `Unexpected character`. Table không viết comment; giải thích cột để trong README của app.
 - Không đoán tên sheet / sheet thứ 2: mỗi loại template là một FILE riêng, dữ liệu luôn ở sheet 1; loại template lấy từ radio trên dialog (`%param-TemplateType`) và lưu xuống `Root.Templatetype`.
 - Không đoán tên bound action của API SAP: hỏi curl thật. Với `API_FIXEDASSET`: `SAP__self.CreateMasterFixedAsset` tạo tài sản chính, `SAP__self.CreateFixedAsset` tạo sub-number.

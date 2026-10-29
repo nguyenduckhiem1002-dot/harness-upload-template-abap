@@ -19,7 +19,6 @@ define view entity ZI_D_SOSL_UPL
       @Semantics.quantity.unitOfMeasure: 'OrderQuantityUnit'
       order_quantity        as OrderQuantity,
       schedule_line_result  as ScheduleLineResult,
-      @Semantics.unitOfMeasure: true
       order_quantity_unit   as OrderQuantityUnit,
       messagetype           as Messagetype,
       case messagetype when '' then 0

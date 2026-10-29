@@ -6,8 +6,12 @@
 "   [lhc_<alias2> ...]   : mỗi child/template thêm = 1 handler copy từ lhc_{{child_alias}}
 "   lhc_Root             : uploadExcel / setStatusToOpen / getExcelData / features / helper parse
 "
+" Quy tắc code (SKILL.md): khai báo tường minh DATA lv_x TYPE ...; inline DATA(...) chỉ ở
+" RESULT/FAILED/REPORTED/MAPPED của READ/MODIFY ENTITIES, FIELD-SYMBOL(...) và chuỗi XCO.
+"
 " Placeholder: {{ROOT_I}} {{CHILD_ALIAS}} {{child_alias}} {{CHILD_ASSOC}} {{CHILD_TBL}} {{ROOT_TBL}}
 "              {{ROOT_DRAFT}} {{API_CLASS}} {{API_METHOD}} {{MSG_CLASS}} {{BUSINESS_FIELDS}} {{RESULT_FIELDS}}
+" Các dòng đánh dấu [MULTI] chỉ giữ khi app có nhiều template (Root.Templatetype); app 1 template xoá đi.
 "=====================================================================
 
 "=====================================================================
@@ -26,6 +30,8 @@ CLASS lhc_{{child_alias}} DEFINITION INHERITING FROM cl_abap_behavior_handler.
         error     TYPE c LENGTH 1 VALUE 'E', "Error
         success   TYPE c LENGTH 1 VALUE 'S', "Success
       END OF file_status.
+
+    TYPES tt_db_data TYPE STANDARD TABLE OF {{CHILD_TBL}} WITH EMPTY KEY.
 
     METHODS get_instance_features FOR INSTANCE FEATURES
       IMPORTING keys REQUEST requested_features FOR {{CHILD_ALIAS}} RESULT result.
@@ -67,13 +73,25 @@ CLASS lhc_{{child_alias}} IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD PostConfirm.
+    DATA lt_data       TYPE tt_db_data.
+    DATA ls_data       TYPE {{CHILD_TBL}}.
+    DATA lt_api_input  TYPE {{API_CLASS}}=>tt_input.
+    DATA ls_api_input  TYPE {{API_CLASS}}=>ty_input.
+    DATA lt_api_result TYPE {{API_CLASS}}=>tt_result.
+    DATA ls_api_result TYPE {{API_CLASS}}=>ty_result.
+    DATA lv_idx        TYPE i.
+    DATA lv_uuidfile   TYPE sysuuid_x16.
+    DATA lv_done       TYPE i.
+    DATA lv_open       TYPE i.
+    DATA lv_new_status TYPE {{ROOT_TBL}}-status.
+
     " ── 1. SELECT các dòng được chọn, chưa success ─────────────────────
     SELECT * FROM {{CHILD_TBL}}
       WITH PRIVILEGED ACCESS
       FOR ALL ENTRIES IN @keys
       WHERE uuid = @keys-uuid
         AND messagetype NE @file_status-success
-      INTO TABLE @DATA(lt_data).
+      INTO TABLE @lt_data.
 
     IF lt_data IS INITIAL.
       RETURN.
@@ -83,26 +101,30 @@ CLASS lhc_{{child_alias}} IMPLEMENTATION.
     SORT lt_data BY sequence.
 
     " ── 2. Map sang input của API class (row_id = index để merge ngược) ──
-    DATA(lt_api_input) = VALUE {{API_CLASS}}=>tt_input(
-      FOR ls_data IN lt_data INDEX INTO lv_idx (
-        row_id       = lv_idx
-        " ---------- {{BUSINESS_FIELDS}}: snake_case table -> field API input ----------
-        " company_code            = ls_data-company_code
-        " post_capitalization     = xsdbool( ls_data-post_capitalization = 'X' )
-        " order_date              = ls_data-order_date
-        " ...
-      ) ).
+    LOOP AT lt_data INTO ls_data.
+      lv_idx += 1.
+      CLEAR ls_api_input.
+      ls_api_input-row_id = lv_idx.
+      " ---------- {{BUSINESS_FIELDS}}: snake_case table -> field API input ----------
+      " ls_api_input-company_code        = ls_data-company_code.
+      " ls_api_input-post_capitalization = xsdbool( ls_data-post_capitalization = 'X' ).
+      " ls_api_input-order_date          = ls_data-order_date.
+      APPEND ls_api_input TO lt_api_input.
+    ENDLOOP.
 
     " ── 3. Gọi API đồng bộ (không schedule job) ───────────────────────
-    DATA(lt_api_result) = {{API_CLASS}}=>{{API_METHOD}}( it_data = lt_api_input ).
+    lt_api_result = {{API_CLASS}}=>{{API_METHOD}}( it_data = lt_api_input ).
 
     " ── 4. Merge kết quả theo row_id ─────────────────────────────────
-    LOOP AT lt_api_result INTO DATA(ls_api_result).
+    LOOP AT lt_api_result INTO ls_api_result.
       READ TABLE lt_data ASSIGNING FIELD-SYMBOL(<fs_merge>) INDEX ls_api_result-row_id.
       IF sy-subrc = 0.
-        <fs_merge>-messagetype = COND #( WHEN ls_api_result-success = abap_true
-                                          THEN file_status-success ELSE file_status-error ).
-        <fs_merge>-message     = ls_api_result-message.
+        IF ls_api_result-success = abap_true.
+          <fs_merge>-messagetype = file_status-success.
+        ELSE.
+          <fs_merge>-messagetype = file_status-error.
+        ENDIF.
+        <fs_merge>-message = ls_api_result-message.
         " ---------- {{RESULT_FIELDS}} ----------
         " <fs_merge>-fixed_asset = ls_api_result-fixed_asset.
       ENDIF.
@@ -112,21 +134,19 @@ CLASS lhc_{{child_alias}} IMPLEMENTATION.
       ENTITY {{CHILD_ALIAS}}
       UPDATE FIELDS ( Messagetype Message " {{RESULT_FIELDS}} vd: FixedAsset
                     )
-      WITH VALUE #( FOR ls_data IN lt_data (
-        %tky-Uuid     = ls_data-uuid
-        %tky-Uuidfile = ls_data-uuidfile
-        Messagetype   = ls_data-messagetype
-        Message       = ls_data-message
-        " FixedAsset    = ls_data-fixed_asset
+      WITH VALUE #( FOR ls_upd IN lt_data (
+        %tky-Uuid     = ls_upd-uuid
+        %tky-Uuidfile = ls_upd-uuidfile
+        Messagetype   = ls_upd-messagetype
+        Message       = ls_upd-message
+        " FixedAsset    = ls_upd-fixed_asset
       ) )
       FAILED   DATA(lt_failed)
       REPORTED DATA(lt_reported).
 
     " ── 5. Tính lại Status + ZcountDone của Root trên TOÀN BỘ child của file ──
     " (xem reference/04-status-flow.md; khi app có thêm child, cộng thêm COUNT của child đó ở đây)
-    DATA(lv_uuidfile) = lt_data[ 1 ]-uuidfile.
-    DATA lv_done TYPE i.
-    DATA lv_open TYPE i.
+    lv_uuidfile = lt_data[ 1 ]-uuidfile.
 
     SELECT COUNT( * ) FROM {{CHILD_TBL}} WITH PRIVILEGED ACCESS
       WHERE uuidfile = @lv_uuidfile AND messagetype = @file_status-success
@@ -136,17 +156,18 @@ CLASS lhc_{{child_alias}} IMPLEMENTATION.
       INTO @lv_open.
 
     " các dòng vừa xử lý chưa commit DB -> bù theo kết quả vừa merge
-    LOOP AT lt_data INTO DATA(ls_chk) WHERE messagetype = file_status-success.
+    LOOP AT lt_data INTO ls_data WHERE messagetype = file_status-success.
       lv_done += 1.
       lv_open -= 1.
     ENDLOOP.
 
     " >>> CHILD 2: SELECT COUNT tương tự trên ztb_d_<app>_<x2> -> lv_done_2 / lv_open_2, cộng vào dưới <<<
 
-    DATA(lv_new_status) = COND #(
-      WHEN lv_open = 0 " AND lv_open_2 = 0
-      THEN file_status-completed
-      ELSE file_status-inprocess ).
+    IF lv_open = 0. " AND lv_open_2 = 0
+      lv_new_status = file_status-completed.
+    ELSE.
+      lv_new_status = file_status-inprocess.
+    ENDIF.
 
     MODIFY ENTITIES OF {{ROOT_I}} IN LOCAL MODE
       ENTITY Root
@@ -195,8 +216,8 @@ CLASS lhc_Root DEFINITION INHERITING FROM cl_abap_behavior_handler.
     " Giới hạn dòng dữ liệu / file.
     CONSTANTS c_max_rows TYPE i VALUE 100.
 
-    " Mỗi loại template = 1 file riêng, chọn bằng radio Template Type trên dialog upload
-    " -> %param-TemplateType -> Root.Templatetype -> getExcelData rẽ nhánh.
+    " [MULTI] Mỗi loại template = 1 file riêng, chọn bằng radio Template Type trên dialog upload
+    " [MULTI] -> %param-TemplateType -> Root.Templatetype -> getExcelData rẽ nhánh.
     CONSTANTS:
       BEGIN OF template_type,
         main TYPE c LENGTH 1 VALUE '{{TEMPLATE_CODE}}', "{{CHILD_LABEL}}
@@ -209,7 +230,6 @@ CLASS lhc_Root DEFINITION INHERITING FROM cl_abap_behavior_handler.
              " Sequence              TYPE string, "A  (nếu template có cột STT)
              " CompanyCode           TYPE string, "B
              " AssetClass            TYPE string, "C
-             " ...
              Dummy TYPE string, "XOÁ dòng này khi điền field thật
            END OF ty_file_upload.
     TYPES tt_file_upload TYPE STANDARD TABLE OF ty_file_upload WITH EMPTY KEY.
@@ -270,32 +290,43 @@ CLASS lhc_Root IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD uploadExcel.
-    DATA: lt_mn_root TYPE TABLE FOR CREATE {{ROOT_I}},
-          ls_mn_root LIKE LINE OF lt_mn_root.
+    DATA lt_mn_root        TYPE TABLE FOR CREATE {{ROOT_I}}.
+    DATA ls_mn_root        LIKE LINE OF lt_mn_root.
+    DATA lv_filecontent    TYPE xstring.
+    DATA lv_template_type  TYPE {{ROOT_TBL}}-templatetype.   " [MULTI]
+    DATA lt_rows           TYPE tt_file_upload.
+    DATA lv_total_lines    TYPE i.
+    FIELD-SYMBOLS <k>      LIKE LINE OF keys.
 
-    READ TABLE keys ASSIGNING FIELD-SYMBOL(<k>) INDEX 1.
+    READ TABLE keys ASSIGNING <k> INDEX 1.
     CHECK sy-subrc = 0.
 
     IF <k>-%param-FileContent IS INITIAL.
       RETURN.
     ENDIF.
 
-    " loại template từ radio trên dialog; rỗng -> template chính (tương thích record cũ)
-    DATA(lv_template_type) = COND #( WHEN <k>-%param-TemplateType IS INITIAL
-                                       THEN template_type-main
-                                       ELSE <k>-%param-TemplateType ).
+    lv_filecontent = <k>-%param-FileContent.
 
-    ls_mn_root-Attachment   = <k>-%param-FileContent.
+    " [MULTI] loại template từ radio trên dialog; rỗng -> template chính (tương thích record cũ)
+    IF <k>-%param-TemplateType IS INITIAL.
+      lv_template_type = template_type-main.
+    ELSE.
+      lv_template_type = <k>-%param-TemplateType.
+    ENDIF.
+
+    ls_mn_root-Attachment   = lv_filecontent.
     ls_mn_root-Filename     = <k>-%param-FileName.
     ls_mn_root-Mimetype     = <k>-%param-MimeType.
-    ls_mn_root-Templatetype = lv_template_type.
-
-    FINAL(lv_filecontent) = <k>-%param-FileContent.
+    ls_mn_root-Templatetype = lv_template_type.   " [MULTI]
 
     " đếm dòng dữ liệu theo đúng loại template
-    DATA(lv_total_lines) = COND i(
-      " WHEN lv_template_type = template_type-sub THEN lines( read_<x2>_sheet( lv_filecontent ) )
-      ELSE lines( read_main_sheet( lv_filecontent ) ) ).
+    CASE lv_template_type.
+      " WHEN template_type-sub.                        " [MULTI]
+      "   lv_total_lines = lines( read_<x2>_sheet( lv_filecontent ) ).
+      WHEN OTHERS.
+        lt_rows        = read_main_sheet( lv_filecontent ).
+        lv_total_lines = lines( lt_rows ).
+    ENDCASE.
 
     IF lv_total_lines > c_max_rows.
       APPEND VALUE #( %cid = <k>-%cid
@@ -316,7 +347,7 @@ CLASS lhc_Root IMPLEMENTATION.
                         Attachment
                         Mimetype
                         Filename
-                        Templatetype
+                        Templatetype    " [MULTI]
                         Countline
                         Createdbyuser
                         Createddate
@@ -335,6 +366,10 @@ CLASS lhc_Root IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD setStatusToOpen.
+    DATA lv_cnt1 TYPE i.
+    DATA lv_cnt2 TYPE i.
+    DATA lv_next TYPE i.
+
     READ ENTITIES OF {{ROOT_I}} IN LOCAL MODE
      ENTITY Root
        FIELDS ( Status )
@@ -344,15 +379,16 @@ CLASS lhc_Root IMPLEMENTATION.
     DELETE lt_root WHERE Status IS NOT INITIAL.
     CHECK lt_root IS NOT INITIAL.
 
-    DATA lv_cnt1 TYPE i.
-    DATA lv_cnt2 TYPE i.
-
     SELECT SINGLE MAX( zcount ) FROM {{ROOT_TBL}}
       WHERE createdbyuser = @sy-uname INTO @lv_cnt1.
     SELECT SINGLE MAX( zcount ) FROM {{ROOT_DRAFT}}
       WHERE createdbyuser = @sy-uname INTO @lv_cnt2.
 
-    DATA(lv_next) = COND i( WHEN lv_cnt1 >= lv_cnt2 THEN lv_cnt1 + 1 ELSE lv_cnt2 + 1 ).
+    IF lv_cnt1 >= lv_cnt2.
+      lv_next = lv_cnt1 + 1.
+    ELSE.
+      lv_next = lv_cnt2 + 1.
+    ENDIF.
 
     MODIFY ENTITIES OF {{ROOT_I}} IN LOCAL MODE
       ENTITY Root
@@ -363,24 +399,29 @@ CLASS lhc_Root IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD getExcelData.
+    DATA lv_filecontent TYPE xstring.
+    DATA lt_file        TYPE tt_file_upload.
+    DATA ls_file        TYPE ty_file_upload.
+    DATA lt_file_c      TYPE TABLE FOR CREATE {{ROOT_I}}\{{CHILD_ASSOC}}.
+    DATA ls_file_c      LIKE LINE OF lt_file_c.
+    DATA lv_index       TYPE i.
+    " DATA lt_file_2      TYPE tt_file_upload_<x2>.   " >>> CHILD 2
+
     " ── 1. Đọc Root ───────────────────────────────────────────────────
     READ ENTITIES OF {{ROOT_I}} IN LOCAL MODE
       ENTITY Root
       ALL FIELDS WITH CORRESPONDING #( keys )
-      RESULT FINAL(lt_record).
+      RESULT DATA(lt_record).
 
     IF lt_record IS INITIAL.
       RETURN.
     ENDIF.
 
     READ TABLE lt_record ASSIGNING FIELD-SYMBOL(<f_root>) INDEX 1.
-    FINAL(lv_filecontent) = <f_root>-Attachment.
+    lv_filecontent = <f_root>-Attachment.
     CHECK lv_filecontent IS NOT INITIAL.
 
-    " ── 2. Rẽ nhánh theo loại template đã lưu ở Root ──────────────────
-    DATA lt_file TYPE tt_file_upload.
-    " DATA lt_file_2 TYPE tt_file_upload_<x2>.
-
+    " ── 2. [MULTI] Rẽ nhánh theo loại template đã lưu ở Root; app 1 template chỉ gọi read_main_sheet ──
     CASE <f_root>-Templatetype.
       " WHEN template_type-sub.
       "   lt_file_2 = read_<x2>_sheet( lv_filecontent ).
@@ -389,31 +430,26 @@ CLASS lhc_Root IMPLEMENTATION.
     ENDCASE.
 
     " ── 3. Build create table cho child {{CHILD_ALIAS}} ──────────────
-    DATA lt_file_c TYPE TABLE FOR CREATE {{ROOT_I}}\{{CHILD_ASSOC}}.
-    DATA ls_file_c LIKE LINE OF lt_file_c.
-    DATA lv_index TYPE i.
-
-    LOOP AT lt_file INTO DATA(ls_file).
+    LOOP AT lt_file INTO ls_file.
       lv_index += 1.
 
+      CLEAR ls_file_c.
       ls_file_c = VALUE #(
           %tky    = <f_root>-%tky
           %target = VALUE #( (
             %cid     = |CID_D_{ lv_index }|
             Type     = 'I'                    " template Mass Create; Mass Change dùng 'U'
-            Sequence = lv_index               " hoặc to_int( ls_file-Sequence ) nếu template có cột STT, rỗng -> lv_index
+            Sequence = lv_index               " hoặc to_int( ls_file-Sequence ) nếu template có cột STT
             " ---------- {{BUSINESS_FIELDS}}: string -> kiểu đích bằng helper ----------
             " CompanyCode           = ls_file-CompanyCode
             " PostCapitalization    = to_flag( ls_file-PostCapitalization )
             " OrderDate             = to_date( ls_file-OrderDate )
-            " UsefulLifeYears       = ls_file-UsefulLifeYears
-            " ...
+            " UsefulLifeYears       = to_int( ls_file-UsefulLifeYears )
             Status   = file_status-open
           ) )
       ).
 
       APPEND ls_file_c TO lt_file_c.
-      CLEAR ls_file_c.
     ENDLOOP.
 
     IF lt_file_c IS NOT INITIAL.
@@ -471,8 +507,12 @@ CLASS lhc_Root IMPLEMENTATION.
 
   METHOD to_int.
     DATA lv_text TYPE string.
+    DATA lv_rest TYPE string.
+
     lv_text = condense( iv_text ).
     CHECK lv_text IS NOT INITIAL.
+    " Excel có thể trả '10.0' cho ô số -> bỏ phần thập phân
+    SPLIT lv_text AT '.' INTO lv_text lv_rest.
     TRY.
         rv_out = lv_text.
       CATCH cx_sy_conversion_error.
@@ -482,17 +522,21 @@ CLASS lhc_Root IMPLEMENTATION.
 
   METHOD to_flag.
     " 'X', 'T', 'true' -> 'X'; còn lại -> ''
-    rv_out = COND #( WHEN iv_text CP 'X*' OR iv_text CP 'T*' OR iv_text CP '*true*' THEN 'X' ELSE '' ).
+    IF iv_text CP 'X*' OR iv_text CP 'T*' OR iv_text CP '*true*'.
+      rv_out = 'X'.
+    ELSE.
+      rv_out = ''.
+    ENDIF.
   ENDMETHOD.
 
   METHOD to_date.
     " "DD.MM.YYYY" -> abap.dats (YYYYMMDD); rỗng/sai format/không phải ngày thật -> initial date
-    DATA lt_part TYPE TABLE OF string.
-    DATA lv_day   TYPE i.
-    DATA lv_month TYPE i.
-    DATA lv_year  TYPE i.
+    DATA lt_part          TYPE TABLE OF string.
+    DATA lv_day           TYPE i.
+    DATA lv_month         TYPE i.
+    DATA lv_year          TYPE i.
     DATA lv_days_in_month TYPE i.
-    DATA lv_is_leap TYPE abap_bool.
+    DATA lv_is_leap       TYPE abap_bool.
 
     CHECK iv_text IS NOT INITIAL.
 
@@ -511,13 +555,24 @@ CLASS lhc_Root IMPLEMENTATION.
     CHECK lv_month BETWEEN 1 AND 12.
     CHECK lv_day   BETWEEN 1 AND 31.
 
-    lv_is_leap = COND #( WHEN lv_year MOD 4 = 0 AND ( lv_year MOD 100 <> 0 OR lv_year MOD 400 = 0 )
-                          THEN abap_true ELSE abap_false ).
+    IF lv_year MOD 4 = 0 AND ( lv_year MOD 100 <> 0 OR lv_year MOD 400 = 0 ).
+      lv_is_leap = abap_true.
+    ELSE.
+      lv_is_leap = abap_false.
+    ENDIF.
 
-    lv_days_in_month = SWITCH #( lv_month
-      WHEN 4 OR 6 OR 9 OR 11 THEN 30
-      WHEN 2 THEN COND #( WHEN lv_is_leap = abap_true THEN 29 ELSE 28 )
-      ELSE 31 ).
+    CASE lv_month.
+      WHEN 4 OR 6 OR 9 OR 11.
+        lv_days_in_month = 30.
+      WHEN 2.
+        IF lv_is_leap = abap_true.
+          lv_days_in_month = 29.
+        ELSE.
+          lv_days_in_month = 28.
+        ENDIF.
+      WHEN OTHERS.
+        lv_days_in_month = 31.
+    ENDCASE.
 
     CHECK lv_day <= lv_days_in_month.
 

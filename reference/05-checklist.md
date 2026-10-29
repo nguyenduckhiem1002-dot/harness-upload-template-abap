@@ -45,6 +45,7 @@
 Kiểm tra nhanh các điểm sau, báo lệch chuẩn thay vì sửa ngầm:
 
 - [ ] Draft table <= 16 ký tự, có `with draft`, `strict ( 2 )`, `lock dependent by _File`, `authorization dependent by _File`.
+- [ ] Không có `DATA(`/`FINAL(` inline ngoài RESULT/FAILED/REPORTED/MAPPED của READ/MODIFY ENTITIES, FIELD-SYMBOL và chuỗi XCO; không có `@Semantics.unitOfMeasure: true` trong view entity.
 - [ ] Table DDL không có comment; CDS/BDEF/MDE chỉ comment ASCII (`grep -P '[^\x00-\x7F]' *.asstruct *.asddls *.asbdef *.asddlxs` phải rỗng).
 - [ ] Root `field ( readonly ) Mimetype, Filename, Status, Zcount, Countline, ZcountDone, Templatetype`.
 - [ ] Child `field ( readonly ) Uuidfile, Message, Messagetype`; `PostConfirm ... result [1] $self` với `features : instance`.
