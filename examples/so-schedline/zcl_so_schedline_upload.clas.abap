@@ -7,8 +7,7 @@
 "                               OrderQuantityISOUnit, RequestedDeliveryDate }                 -> 204
 "   action 'I' (Schedule line trống):
 "       GET   A_SalesOrderItem(SalesOrder='..',SalesOrderItem='..')                             -> lấy unit của item
-"       POST  A_SalesOrderItem(...)/to_ScheduleLine                                             -> 201, d.ScheduleLine
-"       TODO: luồng insert chưa được test bằng curl, chỉ luồng update đã xác nhận.
+"       POST  A_SalesOrderItem(...)/to_ScheduleLine, body giống PATCH                           -> 201, d.ScheduleLine
 "
 " x-csrf-token: zcl_call_api tự GET preflight với 'x-csrf-token: fetch' trước mọi PATCH/POST
 " và gắn token vào request thật. Truyền iv_endpoint = path entity để preflight GET đúng entity.
@@ -324,10 +323,9 @@ CLASS zcl_so_schedline_upload IMPLEMENTATION.
     ENDIF.
 
     " ── 2. POST schedule line mới qua navigation to_ScheduleLine ──
-    " TODO: chưa test bằng curl. Nếu API không cho POST, thay bằng deep PATCH item hoặc báo lỗi rõ.
-    lt_frag = build_quantity_fragments( is_data = is_data is_ref = ls_item ).
-    INSERT field( iv_key = 'SalesOrderItem' iv_value = ext( is_data-sales_order_item ) ) INTO lt_frag INDEX 1.
-    INSERT field( iv_key = 'SalesOrder'     iv_value = ext( is_data-sales_order ) )      INTO lt_frag INDEX 1.
+    " Đã xác nhận bằng request thật: POST A_SalesOrderItem(SalesOrder='..',SalesOrderItem='..')/to_ScheduleLine
+    " body giống PATCH (quantity + 3 unit + RequestedDeliveryDate), KHÔNG gửi SalesOrder/SalesOrderItem trong body.
+    lt_frag    = build_quantity_fragments( is_data = is_data is_ref = ls_item ).
     lv_payload = as_object( lt_frag ).
 
     lv_body = zcl_call_api=>call_api(

@@ -30,16 +30,15 @@ Header: hiện đặt `c_header_rows = 2` theo ảnh mẫu (dòng 1 tên cột, 
 - `Type = 'U'` (update số lượng), 2 request:
   1. `GET A_SalesOrderScheduleLine(...)` lấy `OrderQuantityUnit`, `OrderQuantitySAPUnit`, `OrderQuantityISOUnit`, `RequestedDeliveryDate` hiện tại; lỗi thì dừng dòng đó.
   2. `PATCH` cùng path, body đúng mẫu: `ScheduleLineOrderQuantity`, 3 field unit lấy từ GET, `RequestedDeliveryDate` dạng `/Date(ms)/` (cột D nếu có, không thì giữ ngày cũ). Kỳ vọng 204.
-- `Type = 'I'` (insert): `GET A_SalesOrderItem(...)` lấy unit của item, rồi `POST A_SalesOrderItem(...)/to_ScheduleLine`, kỳ vọng 201 và `d.ScheduleLine` ghi vào `ScheduleLineResult`. **Chưa test bằng curl.**
+- `Type = 'I'` (insert, đã xác nhận bằng request thật): `GET A_SalesOrderItem(...)` lấy unit của item, rồi `POST A_SalesOrderItem(...)/to_ScheduleLine` với body giống PATCH (quantity, 3 unit, `RequestedDeliveryDate`), không có `SalesOrder`/`SalesOrderItem` trong body. Kỳ vọng 201, `d.ScheduleLine` ghi vào `ScheduleLineResult`.
 - `x-csrf-token`: `zcl_call_api` tự GET preflight với `x-csrf-token: fetch` trước mọi PATCH/POST và gắn token vào request thật. Class truyền `iv_endpoint = path entity` để preflight GET chạy trên đúng entity vừa đọc. GET không cần token.
 - Lỗi V2 đọc từ `error.message.value`; `code = 0` của wrapper (lỗi transport) đọc từ `zcl_call_api=>reason`.
 
 ## Còn phải xác nhận trước khi activate
 
-1. Luồng insert (`POST .../to_ScheduleLine`) có được API cho phép không; chạy thử 1 curl POST với body `{ "SalesOrder", "SalesOrderItem", "RequestedDeliveryDate", "ScheduleLineOrderQuantity", "OrderQuantityUnit" }`.
-2. Data element `vbeln_va`, `posnr_va`, `etenr` có dùng được trong môi trường không; nếu không, thay bằng `abap.char(10)`, `abap.numc(6)`, `abap.numc(4)`.
-3. Message class thay cho `Z_FILE_MSG` (001 quá 100 dòng, 002 upload thành công).
-4. Số dòng header của template Excel thật (hiện 2).
+1. Data element `vbeln_va`, `posnr_va`, `etenr` có dùng được trong môi trường không; nếu không, thay bằng `abap.char(10)`, `abap.numc(6)`, `abap.numc(4)`.
+2. Message class thay cho `Z_FILE_MSG` (001 quá 100 dòng, 002 upload thành công).
+3. Số dòng header của template Excel thật (hiện 2).
 
 ## Thứ tự activate
 
