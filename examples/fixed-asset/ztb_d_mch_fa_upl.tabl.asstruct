@@ -1,0 +1,76 @@
+@EndUserText.label : 'Data upload Mass Create Fixed Asset'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table ztb_d_mch_fa_upl {
+
+  key client              : abap.clnt not null;
+  key uuid                : sysuuid_x16 not null;
+  key uuidfile            : sysuuid_x16 not null;
+  status                  : abap.char(1);
+  type                    : abap.char(1);
+  company_code            : bukrs;
+  @EndUserText.label : 'Asset Class'
+  asset_class             : abap.char(8);
+  @EndUserText.label : 'Post Capitalization'
+  post_capitalization     : abap.char(1);
+  @EndUserText.label : 'Asset Description'
+  fixed_asset_description : abap.char(50);
+  @EndUserText.label : 'Additional Description'
+  additional_description  : abap.char(50);
+  @EndUserText.label : 'Base Unit of Measure'
+  base_unit_iso_code      : abap.char(3);
+  @EndUserText.label : 'Serial Number'
+  serial_number           : abap.char(18);
+  @EndUserText.label : 'Ordered On'
+  order_date              : abap.dats;
+  @EndUserText.label : 'Evaluation Group 1'
+  eval_group_1            : abap.char(20);
+  @EndUserText.label : 'Evaluation Group 2'
+  eval_group_2            : abap.char(20);
+  @EndUserText.label : 'Evaluation Group 3'
+  eval_group_3            : abap.char(20);
+  @EndUserText.label : 'Inventory Number'
+  inventory_number        : abap.char(25);
+  @EndUserText.label : 'Last Inventory On'
+  last_inventory_date     : abap.dats;
+  @EndUserText.label : 'Inventory Note'
+  inventory_note          : abap.char(50);
+  @EndUserText.label : 'Asset Is Inventory-Relevant'
+  inventory_is_counted    : abap.char(1);
+  cost_center             : kostl;
+  profit_center           : prctr;
+  plant                   : werks_d;
+  @EndUserText.label : 'Room'
+  room                    : abap.char(8);
+  segment                 : fb_segment;
+  @EndUserText.label : 'Location'
+  asset_location          : abap.char(10);
+  supplier                : lifnr;
+  @EndUserText.label : 'Asset Was Acquired Used'
+  asset_is_acquired_used  : abap.char(1);
+  @EndUserText.label : 'Manufacturer of Asset'
+  manufacturer_name       : abap.char(30);
+  @EndUserText.label : 'Capitalized On'
+  capitalization_date     : abap.dats;
+  @EndUserText.label : 'Deactivated On'
+  deactivation_date       : abap.dats;
+  @EndUserText.label : 'Useful Life in Years'
+  useful_life_years       : abap.int4;
+  @EndUserText.label : 'Useful Life in Periods'
+  useful_life_periods     : abap.int4;
+  @EndUserText.label : 'Depreciation Start Date'
+  depreciation_start_date : abap.dats;
+  fixed_asset             : anln1;
+  @EndUserText.label : 'Master Fixed Asset (created)'
+  master_fixed_asset      : abap.char(12);
+  messagetype             : abap.char(1);
+  message                 : abap.char(255);
+  created_by              : abp_creation_user;
+  created_at              : abp_creation_tstmpl;
+  last_changed_by         : abp_locinst_lastchange_user;
+  local_last_changed_at   : abp_locinst_lastchange_tstmpl;
+  last_changed_at         : abp_lastchange_tstmpl;
+
+}

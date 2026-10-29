@@ -1,0 +1,38 @@
+projection;
+strict ( 2 );
+use draft;
+
+define behavior for ZC_M_MCO_FA_UPL alias Root
+{
+  //  use create;
+  use update;
+  use delete;
+
+  use action Resume;
+  use action Edit;
+  use action Activate;
+  use action Discard;
+  use action Prepare;
+  use action uploadExcel;
+  use action downloadFile;
+
+  use association _Data    { create; with draft; }
+  use association _DataSub { create; with draft; }
+
+}
+
+define behavior for ZC_D_MCH_FA_UPL alias Data
+{
+  use update;
+  use delete;
+  use action PostConfirm;
+  use association _File { with draft; }
+}
+
+define behavior for ZC_D_MCH_FASUPL alias DataSub
+{
+  use update;
+  use delete;
+  use action PostConfirm;
+  use association _File { with draft; }
+}

@@ -1,0 +1,32 @@
+projection;
+strict ( 2 );
+use draft;
+
+define behavior for {{ROOT_C}} alias Root
+{
+  //  use create;   // Root chỉ được tạo qua uploadExcel
+  use update;
+  use delete;
+
+  use action Resume;
+  use action Edit;
+  use action Activate;
+  use action Discard;
+  use action Prepare;
+  use action uploadExcel;
+  use action downloadFile;
+
+  use association {{CHILD_ASSOC}} { create; with draft; }
+  // use association _<Alias2> { create; with draft; }
+
+}
+
+define behavior for {{CHILD_C}} alias {{CHILD_ALIAS}}
+{
+  use update;
+  use delete;
+  use action PostConfirm;
+  use association _File { with draft; }
+}
+
+// Child thứ 2 trở đi: copy block trên với ZC_D_<APP>_<X2> alias <Alias2>.

@@ -1,0 +1,94 @@
+managed implementation in class {{BP_CLASS}} unique;
+strict ( 2 );
+with draft;
+
+define behavior for {{ROOT_I}} alias Root
+persistent table {{ROOT_TBL}}
+draft table {{ROOT_DRAFT}}
+lock master
+total etag Changeddate
+authorization master ( instance )
+etag master Changeddate
+
+{
+  create ( authorization : global );
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Mimetype, Filename, Status, Zcount, Countline, ZcountDone, Templatetype;
+
+  association {{CHILD_ASSOC}} { create; with draft; }
+  // association _<Alias2> { create; with draft; }
+
+  // Draft actions
+  draft action Resume;
+  draft action Edit;
+  draft action Activate optimized;
+  draft action Discard;
+  draft determine action Prepare;
+
+  static action uploadExcel parameter {{ABS_UPLOAD}};
+  static action downloadFile result [1] {{ABS_DOWNLOAD}};
+
+  determination getExcelData on save { field Filename; }
+  determination setStatusToOpen on modify { create; }
+
+  mapping for {{ROOT_TBL}} corresponding
+    {
+      Uuid          = uuid;
+      Zcount        = zcount;
+      ZcountDone    = zcount_done;
+      Status        = status;
+      Templatetype  = templatetype;
+      Attachment    = attachment;
+      Mimetype      = mimetype;
+      Filename      = filename;
+      Countline     = countline;
+      Createdbyuser = createdbyuser;
+      Createddate   = createddate;
+      Changedbyuser = changedbyuser;
+      Changeddate   = changeddate;
+    }
+}
+
+define behavior for {{CHILD_I}} alias {{CHILD_ALIAS}}
+persistent table {{CHILD_TBL}}
+draft table {{CHILD_DRAFT}}
+lock dependent by _File
+authorization dependent by _File
+etag master LastChangedAt
+{
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Uuidfile, Message, Messagetype;
+
+  association _File { with draft; }
+
+  action ( features : instance ) PostConfirm result [1] $self;
+
+  mapping for {{CHILD_TBL}} corresponding
+    {
+      Uuid                  = uuid;
+      Uuidfile              = uuidfile;
+      Status                = status;
+      Type                  = type;
+      Sequence              = sequence;
+      // ---------- {{BUSINESS_FIELDS}}: liệt kê đủ từng cặp CamelCase = snake_case ----------
+      // CompanyCode           = company_code;
+      // AssetClass            = asset_class;
+      // ...
+      // ---------- {{RESULT_FIELDS}} ----------
+      // FixedAsset            = fixed_asset;
+      // MasterFixedAsset      = master_fixed_asset;
+      Messagetype           = messagetype;
+      Message               = message;
+      CreatedBy             = created_by;
+      CreatedAt             = created_at;
+      LastChangedBy         = last_changed_by;
+      LocalLastChangedAt    = local_last_changed_at;
+      LastChangedAt         = last_changed_at;
+    }
+}
+
+// Child thứ 2 trở đi: copy nguyên block trên, đổi {{CHILD_I}}/{{CHILD_ALIAS}}/{{CHILD_TBL}}/{{CHILD_DRAFT}}/mapping.

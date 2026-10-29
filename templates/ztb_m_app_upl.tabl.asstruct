@@ -1,0 +1,24 @@
+@EndUserText.label : 'Manage File Upload {{APP_LABEL}}'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table {{ROOT_TBL}} {
+
+  key client    : abap.clnt not null;
+  key uuid      : sysuuid_x16 not null;
+  zcount        : abap.int4;
+  zcount_done   : abap.int4;
+  status        : abap.char(1);
+  attachment    : zde_attachment;
+  mimetype      : zde_mime_type;
+  filename      : zde_filename;
+  @EndUserText.label : 'Template Type'
+  templatetype  : abap.char(1);
+  countline     : abap.int4;
+  createdbyuser : abp_creation_user;
+  createddate   : abp_creation_tstmpl;
+  changedbyuser : abp_lastchange_user;
+  changeddate   : abp_lastchange_tstmpl;
+
+}

@@ -1,0 +1,64 @@
+@Metadata.layer: #CUSTOMER
+@UI: {
+  headerInfo: {
+    typeName: '{{CHILD_TYPE_NAME}}',
+    typeNamePlural: '{{CHILD_LABEL}}',
+    title: { type: #STANDARD, value: 'Sequence' },
+    description: { type: #STANDARD, value: 'Message' }
+  }
+}
+annotate view {{CHILD_C}} with
+{
+  @UI.facet: [
+    { id: 'General', purpose: #STANDARD, type: #IDENTIFICATION_REFERENCE, label: 'General', position: 10 },
+    // mỗi nhóm cột của template Excel (dòng 1) = 1 fieldGroup facet
+    // { id: 'Org',  purpose: #STANDARD, type: #FIELDGROUP_REFERENCE, label: 'Organization', position: 20, targetQualifier: 'Org' },
+    { id: 'Result',  purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Result',  position: 90, targetQualifier: 'Result' }
+  ]
+
+  @UI.hidden: true
+  Uuid;
+  @UI.hidden: true
+  Uuidfile;
+
+  // lineItem 10..80 dành cho các cột nhận diện + kết quả; cột nghiệp vụ còn lại từ 90 trở đi theo thứ tự cột Excel
+  @UI: {
+    lineItem:       [ { position: 10, importance: #HIGH },
+                      { type: #FOR_ACTION, dataAction: 'PostConfirm', label: 'Post Confirm' } ],
+    identification: [ { position: 10 } ]
+  }
+  @EndUserText.label: 'Sequence'
+  Sequence;
+
+  // ---------- {{BUSINESS_FIELDS}} ----------
+  // @UI: { lineItem: [{ position: 20 }], identification: [{ position: 20 }] }
+  // CompanyCode;
+  // @UI: { lineItem: [{ position: 30 }], identification: [{ position: 30 }] }
+  // @EndUserText.label: 'Asset Class'
+  // AssetClass;
+  // @UI: { lineItem: [{ position: 40 }], identification: [{ position: 40 }] }
+  // @EndUserText.label: 'Asset Description'
+  // FixedAssetDescription;
+  // @UI: { lineItem: [{ position: 90 }], identification: [{ position: 50 }] }
+  // AdditionalDescription;
+  // @UI: { lineItem: [{ position: 170 }], fieldGroup: [{ qualifier: 'Org', position: 10 }] }
+  // CostCenter;
+  // ...
+
+  // ---------- {{RESULT_FIELDS}} ----------
+  // @UI: { lineItem: [{ position: 50 }], fieldGroup: [{ qualifier: 'Result', position: 10 }] }
+  // @EndUserText.label: 'Fixed Asset (created)'
+  // FixedAsset;
+
+  @UI: { lineItem: [{ position: 70, criticality: 'Criticality' }], fieldGroup: [{ qualifier: 'Result', position: 30, criticality: 'Criticality' }] }
+  Messagetype;
+  @UI: { lineItem: [{ position: 80 }], fieldGroup: [{ qualifier: 'Result', position: 40 }] }
+  Message;
+
+  @UI.hidden: true
+  Criticality;
+  @UI.hidden: true
+  Status;
+  @UI.hidden: true
+  Type;
+}

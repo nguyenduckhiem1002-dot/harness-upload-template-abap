@@ -1,0 +1,145 @@
+@Metadata.layer: #CUSTOMER
+@UI: {
+  headerInfo: {
+    typeName: 'Asset Sub-number',
+    typeNamePlural: 'Asset Sub-numbers',
+    title: { type: #STANDARD, value: 'MasterFixedAsset' },
+    description: { type: #STANDARD, value: 'FixedAssetDescription' }
+  }
+}
+annotate view ZC_D_MCH_FASUPL with
+{
+  @UI.facet: [
+    { id: 'General',   purpose: #STANDARD, type: #IDENTIFICATION_REFERENCE, label: 'General',        position: 10 },
+    { id: 'Org',       purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Organization',   position: 20, targetQualifier: 'Org' },
+    { id: 'Inventory', purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Inventory',      position: 30, targetQualifier: 'Inv' },
+    { id: 'Depr',      purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Depreciation',   position: 40, targetQualifier: 'Depr' },
+    { id: 'Result',    purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Result',         position: 50, targetQualifier: 'Result' }
+  ]
+
+  @UI.hidden: true
+  Uuid;
+  @UI.hidden: true
+  Uuidfile;
+
+  @UI: {
+  lineItem:       [ { position: 10,  importance: #HIGH },
+                     { type: #FOR_ACTION, dataAction: 'PostConfirm', label: 'Post Confirm' } ],
+  identification: [ { position: 10 }
+                      ]
+  }
+  @EndUserText.label: 'Sequence'
+  Sequence;
+
+  @UI: { lineItem: [{ position: 20 }], identification: [{ position: 20 }] }
+  CompanyCode;
+
+  @UI: { lineItem: [{ position: 30 }], identification: [{ position: 30 }] }
+  @EndUserText.label: 'Master Fixed Asset'
+
+  MasterFixedAsset;
+
+  @UI: { lineItem: [{ position: 40 }], identification: [{ position: 40 }] }
+  @EndUserText.label: 'Asset Description'
+  FixedAssetDescription;
+
+  @UI: { lineItem: [{ position: 90 }], identification: [{ position: 50 }] }
+  @EndUserText.label: 'Additional Description'
+  AdditionalDescription;
+
+  @UI: { lineItem: [{ position: 100 }], identification: [{ position: 60 }] }
+  @EndUserText.label: 'Post Capitalization'
+  PostCapitalization;
+
+  @UI: { lineItem: [{ position: 110 }], identification: [{ position: 70 }] }
+  @EndUserText.label: 'Base Unit of Measure'
+  BaseUnitIsoCode;
+
+  @UI: { lineItem: [{ position: 120 }], identification: [{ position: 80 }] }
+  @EndUserText.label: 'Serial Number'
+  SerialNumber;
+
+  @UI: { lineItem: [{ position: 130 }], identification: [{ position: 90 }] }
+  @EndUserText.label: 'Ordered On'
+  OrderDate;
+
+  @UI: { lineItem: [{ position: 140 }], identification: [{ position: 100 }] }
+  @EndUserText.label: 'Evaluation Group 1'
+  EvalGroup1;
+  @UI: { lineItem: [{ position: 150 }], identification: [{ position: 110 }] }
+  @EndUserText.label: 'Evaluation Group 2'
+  EvalGroup2;
+  @UI: { lineItem: [{ position: 160 }], identification: [{ position: 120 }] }
+  @EndUserText.label: 'Evaluation Group 3'
+  EvalGroup3;
+
+  @UI: { lineItem: [{ position: 170 }], fieldGroup: [{ qualifier: 'Org', position: 10 }] }
+  CostCenter;
+  @UI: { lineItem: [{ position: 180 }], fieldGroup: [{ qualifier: 'Org', position: 20 }] }
+  ProfitCenter;
+  @UI: { lineItem: [{ position: 190 }], fieldGroup: [{ qualifier: 'Org', position: 30 }] }
+  Plant;
+  @UI: { lineItem: [{ position: 200 }], fieldGroup: [{ qualifier: 'Org', position: 40 }] }
+  Segment;
+  @UI: { lineItem: [{ position: 210 }], fieldGroup: [{ qualifier: 'Org', position: 50 }] }
+  @EndUserText.label: 'Room'
+  Room;
+  @UI: { lineItem: [{ position: 220 }], fieldGroup: [{ qualifier: 'Org', position: 60 }] }
+  @EndUserText.label: 'Location'
+  AssetLocation;
+  @UI: { lineItem: [{ position: 230 }], fieldGroup: [{ qualifier: 'Org', position: 70 }] }
+  Supplier;
+  @UI: { lineItem: [{ position: 240 }], fieldGroup: [{ qualifier: 'Org', position: 80 }] }
+  @EndUserText.label: 'Manufacturer of Asset'
+  ManufacturerName;
+  @UI: { lineItem: [{ position: 250 }], fieldGroup: [{ qualifier: 'Org', position: 90 }] }
+  @EndUserText.label: 'Asset Was Acquired Used'
+  AssetIsAcquiredUsed;
+
+  @UI: { lineItem: [{ position: 260 }], fieldGroup: [{ qualifier: 'Inv', position: 10 }] }
+  @EndUserText.label: 'Inventory Number'
+  InventoryNumber;
+  @UI: { lineItem: [{ position: 270 }], fieldGroup: [{ qualifier: 'Inv', position: 20 }] }
+  @EndUserText.label: 'Last Inventory On'
+  LastInventoryDate;
+  @UI: { lineItem: [{ position: 280 }], fieldGroup: [{ qualifier: 'Inv', position: 30 }] }
+  @EndUserText.label: 'Inventory Note'
+  InventoryNote;
+  @UI: { lineItem: [{ position: 290 }], fieldGroup: [{ qualifier: 'Inv', position: 40 }] }
+  @EndUserText.label: 'Asset Is Inventory-Relevant'
+  InventoryIsCounted;
+
+  @UI: { lineItem: [{ position: 300 }], fieldGroup: [{ qualifier: 'Depr', position: 10 }] }
+  @EndUserText.label: 'Capitalized On'
+  CapitalizationDate;
+  @UI: { lineItem: [{ position: 310 }], fieldGroup: [{ qualifier: 'Depr', position: 20 }] }
+  @EndUserText.label: 'Deactivated On'
+  DeactivationDate;
+  @UI: { lineItem: [{ position: 320 }], fieldGroup: [{ qualifier: 'Depr', position: 30 }] }
+  @EndUserText.label: 'Useful Life in Years'
+  UsefulLifeYears;
+  @UI: { lineItem: [{ position: 330 }], fieldGroup: [{ qualifier: 'Depr', position: 40 }] }
+  @EndUserText.label: 'Useful Life in Periods'
+  UsefulLifePeriods;
+  @UI: { lineItem: [{ position: 340 }], fieldGroup: [{ qualifier: 'Depr', position: 50 }] }
+  @EndUserText.label: 'Depreciation Start Date'
+  DepreciationStartDate;
+
+  @UI: { lineItem: [{ position: 50 }], fieldGroup: [{ qualifier: 'Result', position: 10 }] }
+  @EndUserText.label: 'Fixed Asset (created)'
+  FixedAsset;
+  @UI: { lineItem: [{ position: 60 }], fieldGroup: [{ qualifier: 'Result', position: 20 }] }
+  @EndUserText.label: 'Sub-number (created)'
+  FixedAssetSubnumber;
+  @UI: { lineItem: [{ position: 70, criticality: 'Criticality' }], fieldGroup: [{ qualifier: 'Result', position: 30, criticality: 'Criticality' }] }
+  Messagetype;
+  @UI: { lineItem: [{ position: 80 }], fieldGroup: [{ qualifier: 'Result', position: 40 }] }
+  Message;
+
+  @UI.hidden: true
+  Criticality;
+  @UI.hidden: true
+  Status;
+  @UI.hidden: true
+  Type;
+}

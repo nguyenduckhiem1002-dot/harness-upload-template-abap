@@ -1,0 +1,179 @@
+managed implementation in class zbp_r_m_mco_fa_upl unique;
+strict ( 2 );
+with draft;
+
+define behavior for ZR_M_MCO_FA_UPL alias Root
+persistent table ztb_m_mco_fa_upl
+draft table ztb_m_mco_fa_d
+lock master
+total etag Changeddate
+authorization master ( instance )
+etag master Changeddate
+
+{
+  create ( authorization : global );
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Mimetype, Filename, Status, Zcount, Countline, ZcountDone, Templatetype;
+
+  association _Data    { create; with draft; }
+  association _DataSub { create; with draft; }
+
+  // Draft actions
+  draft action Resume;
+  draft action Edit;
+  draft action Activate optimized;
+  draft action Discard;
+  draft determine action Prepare;
+
+  static action uploadExcel parameter zabs_file_crud_poc_n;
+  static action downloadFile result [1] zabs_file_crud_poc;
+
+  determination getExcelData on save { field Filename; }
+  determination setStatusToOpen on modify { create; }
+
+  mapping for ztb_m_mco_fa_upl corresponding
+    {
+      Uuid          = uuid;
+      Zcount        = zcount;
+      ZcountDone    = zcount_done;
+      Status        = status;
+      Templatetype  = templatetype;
+      Attachment    = attachment;
+      Mimetype      = mimetype;
+      Filename      = filename;
+      Countline     = countline;
+      Createdbyuser = createdbyuser;
+      Createddate   = createddate;
+      Changedbyuser = changedbyuser;
+      Changeddate   = changeddate;
+    }
+}
+
+define behavior for ZI_D_MCH_FA_UPL alias Data
+persistent table ztb_d_mch_fa_upl
+draft table ztb_d_mch_fa_d
+lock dependent by _File
+authorization dependent by _File
+etag master LastChangedAt
+{
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Uuidfile, Message, Messagetype;
+
+  association _File { with draft; }
+
+  action ( features : instance ) PostConfirm result [1] $self;
+
+  mapping for ztb_d_mch_fa_upl corresponding
+    {
+      Uuid                  = uuid;
+      Uuidfile              = uuidfile;
+      Status                = status;
+      Type                  = type;
+      CompanyCode           = company_code;
+      AssetClass            = asset_class;
+      PostCapitalization    = post_capitalization;
+      FixedAssetDescription = fixed_asset_description;
+      AdditionalDescription = additional_description;
+      BaseUnitIsoCode       = base_unit_iso_code;
+      SerialNumber          = serial_number;
+      OrderDate             = order_date;
+      EvalGroup1            = eval_group_1;
+      EvalGroup2            = eval_group_2;
+      EvalGroup3            = eval_group_3;
+      InventoryNumber       = inventory_number;
+      LastInventoryDate     = last_inventory_date;
+      InventoryNote         = inventory_note;
+      InventoryIsCounted    = inventory_is_counted;
+      CostCenter            = cost_center;
+      ProfitCenter          = profit_center;
+      Plant                 = plant;
+      Room                  = room;
+      Segment               = segment;
+      AssetLocation         = asset_location;
+      Supplier              = supplier;
+      AssetIsAcquiredUsed   = asset_is_acquired_used;
+      ManufacturerName      = manufacturer_name;
+      CapitalizationDate    = capitalization_date;
+      DeactivationDate      = deactivation_date;
+      UsefulLifeYears       = useful_life_years;
+      UsefulLifePeriods     = useful_life_periods;
+      DepreciationStartDate = depreciation_start_date;
+      FixedAsset            = fixed_asset;
+      MasterFixedAsset      = master_fixed_asset;
+      Messagetype           = messagetype;
+      Message               = message;
+      CreatedBy             = created_by;
+      CreatedAt             = created_at;
+      LastChangedBy         = last_changed_by;
+      LocalLastChangedAt    = local_last_changed_at;
+      LastChangedAt         = last_changed_at;
+    }
+}
+
+define behavior for ZI_D_MCH_FASUPL alias DataSub
+persistent table ztb_d_mch_fasupl
+draft table ztb_d_fasup_d
+lock dependent by _File
+authorization dependent by _File
+etag master LastChangedAt
+{
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Uuidfile, Message, Messagetype;
+
+  association _File { with draft; }
+
+  action ( features : instance ) PostConfirm result [1] $self;
+
+  mapping for ztb_d_mch_fasupl corresponding
+    {
+      Uuid                  = uuid;
+      Uuidfile              = uuidfile;
+      Status                = status;
+      Type                  = type;
+      Sequence              = sequence;
+      CompanyCode           = company_code;
+      MasterFixedAsset      = master_fixed_asset;
+      PostCapitalization    = post_capitalization;
+      FixedAssetDescription = fixed_asset_description;
+      AdditionalDescription = additional_description;
+      BaseUnitIsoCode       = base_unit_iso_code;
+      SerialNumber          = serial_number;
+      OrderDate             = order_date;
+      EvalGroup1            = eval_group_1;
+      EvalGroup2            = eval_group_2;
+      EvalGroup3            = eval_group_3;
+      InventoryNumber       = inventory_number;
+      LastInventoryDate     = last_inventory_date;
+      InventoryNote         = inventory_note;
+      InventoryIsCounted    = inventory_is_counted;
+      CostCenter            = cost_center;
+      ProfitCenter          = profit_center;
+      Plant                 = plant;
+      Room                  = room;
+      Segment               = segment;
+      AssetLocation         = asset_location;
+      Supplier              = supplier;
+      AssetIsAcquiredUsed   = asset_is_acquired_used;
+      ManufacturerName      = manufacturer_name;
+      CapitalizationDate    = capitalization_date;
+      DeactivationDate      = deactivation_date;
+      UsefulLifeYears       = useful_life_years;
+      UsefulLifePeriods     = useful_life_periods;
+      DepreciationStartDate = depreciation_start_date;
+      FixedAsset            = fixed_asset;
+      FixedAssetSubnumber   = fixed_asset_subnumber;
+      Messagetype           = messagetype;
+      Message               = message;
+      CreatedBy             = created_by;
+      CreatedAt             = created_at;
+      LastChangedBy         = last_changed_by;
+      LocalLastChangedAt    = local_last_changed_at;
+      LastChangedAt         = last_changed_at;
+    }
+}
