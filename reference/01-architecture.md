@@ -52,6 +52,22 @@ DATA(lv_status) = zcl_call_api=>code.   " 201 = created; 0 = lỗi transport/loc
 - `code = 0` không phải HTTP status: API class phải coi là lỗi và ghi `reason` vào `Message`.
 - Chỉ một dòng cấu hình trong `ztb_api_auth`; nếu có nhiều API user, mở rộng bằng key `api_name` và truyền `iv_apiName`.
 
+## API OData V2 so với V4 (hỏi user API nào trước khi viết class)
+
+| | OData V4 A2X (vd `API_FIXEDASSET`) | OData V2 (vd `API_SALES_ORDER_SRV`) |
+|---|---|---|
+| Service root | `/sap/opu/odata4/sap/<api>/srvd_a2x/sap/<srv>/0001` | `/sap/opu/odata/sap/<API>_SRV` |
+| Entity | `FixedAsset/SAP__self.CreateFixedAsset` (bound action) | `A_SalesOrderScheduleLine(SalesOrder='10001855',SalesOrderItem='30',ScheduleLine='1')` |
+| Key | theo metadata, thường có 0 đầu | KHÔNG có 0 đầu (`ext( )` = ALPHA OUT) |
+| Response body | entity phẳng `{ "FixedAsset": ... }` | bọc trong `{ "d": { ... } }`; collection `{ "d": { "results": [...] } }` |
+| Ngày | `"2025-10-23"` | `"/Date(1761177600000)/"` = ms từ 1970-01-01 UTC; `(d - '19700101') * 86400000` |
+| Số lượng | chuỗi `"20"` | chuỗi `"20"`, PATCH phải gửi kèm `OrderQuantityUnit`, `OrderQuantitySAPUnit`, `OrderQuantityISOUnit` (lấy từ GET trước) |
+| Update | PATCH, cần `If-Match` ETag (wrapper tự lấy khi `iv_endpoint` = path entity) | PATCH trả 204, không cần ETag, nhưng nên GET trước để lấy unit/ngày hiện tại |
+| Error body | `error.message` | `error.message.value` |
+| Content-Type | `application/json;odata.metadata=minimal;charset=utf-8` | `application/json` (wrapper đã gửi `DataServiceVersion: 2.0`) |
+
+Pattern V2 "GET rồi PATCH" có sẵn trong ví dụ `so-schedline` (class `zcl_so_schedline_upload`: `get_entity` + `do_update`).
+
 ## Vì sao tách mỗi template thành một child riêng
 
 - Cột khác nhau -> bảng khác nhau, tránh bảng "to" với nhiều cột rỗng.
