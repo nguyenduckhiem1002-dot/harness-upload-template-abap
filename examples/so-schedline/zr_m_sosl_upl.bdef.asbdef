@@ -1,0 +1,90 @@
+managed implementation in class zbp_r_m_sosl_upl unique;
+strict ( 2 );
+with draft;
+
+define behavior for ZR_M_SOSL_UPL alias Root
+persistent table ztb_m_sosl_upl
+draft table ztb_m_sosl_d
+lock master
+total etag Changeddate
+authorization master ( instance )
+etag master Changeddate
+
+{
+  create ( authorization : global );
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Mimetype, Filename, Status, Zcount, Countline, ZcountDone;
+
+  association _Data { create; with draft; }
+
+  // Draft actions
+  draft action Resume;
+  draft action Edit;
+  draft action Activate optimized;
+  draft action Discard;
+  draft determine action Prepare;
+
+  static action uploadExcel parameter zabs_file_crud_poc_n;
+  static action downloadFile result [1] zabs_file_crud_poc;
+
+  determination getExcelData on save { field Filename; }
+  determination setStatusToOpen on modify { create; }
+
+  mapping for ztb_m_sosl_upl corresponding
+    {
+      Uuid          = uuid;
+      Zcount        = zcount;
+      ZcountDone    = zcount_done;
+      Status        = status;
+      Attachment    = attachment;
+      Mimetype      = mimetype;
+      Filename      = filename;
+      Countline     = countline;
+      Createdbyuser = createdbyuser;
+      Createddate   = createddate;
+      Changedbyuser = changedbyuser;
+      Changeddate   = changeddate;
+    }
+}
+
+define behavior for ZI_D_SOSL_UPL alias Data
+persistent table ztb_d_sosl_upl
+draft table ztb_d_sosl_d
+lock dependent by _File
+authorization dependent by _File
+etag master LastChangedAt
+{
+  update ( features : instance );
+  delete ( features : instance );
+  field ( readonly, numbering : managed ) Uuid;
+  field ( readonly ) Uuidfile, Message, Messagetype, ScheduleLineResult, OrderQuantityUnit;
+
+  association _File { with draft; }
+
+  action ( features : instance ) PostConfirm result [1] $self;
+
+  mapping for ztb_d_sosl_upl corresponding
+    {
+      Uuid               = uuid;
+      Uuidfile           = uuidfile;
+      Status             = status;
+      Type               = type;
+      Sequence           = sequence;
+      SalesOrder         = sales_order;
+      SalesOrderItem     = sales_order_item;
+      ScheduleLine       = schedule_line;
+      DeliveryDate       = delivery_date;
+      OrderQuantity      = order_quantity;
+      ScheduleLineResult = schedule_line_result;
+      OrderQuantityUnit  = order_quantity_unit;
+      Messagetype        = messagetype;
+      Message            = message;
+      CreatedBy          = created_by;
+      CreatedAt          = created_at;
+      LastChangedBy      = last_changed_by;
+      LocalLastChangedAt = local_last_changed_at;
+      LastChangedAt      = last_changed_at;
+    }
+}

@@ -11,7 +11,7 @@ annotate view {{CHILD_C}} with
 {
   @UI.facet: [
     { id: 'General', purpose: #STANDARD, type: #IDENTIFICATION_REFERENCE, label: 'General', position: 10 },
-    // mỗi nhóm cột của template Excel (dòng 1) = 1 fieldGroup facet
+    // one fieldGroup facet per column group (row 1 of the Excel template)
     // { id: 'Org',  purpose: #STANDARD, type: #FIELDGROUP_REFERENCE, label: 'Organization', position: 20, targetQualifier: 'Org' },
     { id: 'Result',  purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Result',  position: 90, targetQualifier: 'Result' }
   ]
@@ -21,7 +21,7 @@ annotate view {{CHILD_C}} with
   @UI.hidden: true
   Uuidfile;
 
-  // lineItem 10..80 dành cho các cột nhận diện + kết quả; cột nghiệp vụ còn lại từ 90 trở đi theo thứ tự cột Excel
+  // lineItem 10..80 = key + result columns; remaining business columns from 90 on, in Excel column order
   @UI: {
     lineItem:       [ { position: 10, importance: #HIGH },
                       { type: #FOR_ACTION, dataAction: 'PostConfirm', label: 'Post Confirm' } ],

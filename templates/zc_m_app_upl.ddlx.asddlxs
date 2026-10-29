@@ -37,7 +37,7 @@ annotate entity {{ROOT_C}} with
   @Consumption.filter.hidden: true
   Criticality;
 
-  // Tuỳ chọn: hiện loại template trên list + filter (bỏ block này nếu app chỉ có 1 template)
+  // Optional: show template type on list + filter (remove this block for single-template apps)
   @EndUserText.label: 'Template Type'
   @UI: {
     lineItem:       [ { position: 25, importance: #MEDIUM } ],

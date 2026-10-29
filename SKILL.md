@@ -69,7 +69,8 @@ Service definition / service binding (OData V4 UI) vẫn phải expose `ZC_M_<AP
 
 ## Quy ước cố định (không đổi giữa các app)
 
-- **Root field cố định**: `Uuid, Zcount, ZcountDone, Status, Criticality, Attachment, Mimetype, Filename, Templatetype, Countline, Createdbyuser, Createddate, Changedbyuser, Changeddate`.
+- **Root field cố định**: `Uuid, Zcount, ZcountDone, Status, Criticality, Attachment, Mimetype, Filename, Countline, Createdbyuser, Createddate, Changedbyuser, Changeddate`.
+- **`Templatetype` CHỈ khi một chương trình upload nhiều loại template** (nhiều child, radio Template Type trên dialog). App 1 template: bỏ `templatetype` khỏi table Root, Root view, projection, BDEF (readonly + mapping), MDE, và bỏ `ls_mn_root-Templatetype` + hằng `template_type` trong `lhc_Root`; `getExcelData` không rẽ nhánh. Abstract entity upload dùng chung vẫn giữ `templateType`, app 1 template chỉ bỏ qua tham số này. Ví dụ: `examples/fixed-asset` = nhiều template, `examples/so-schedline` = 1 template.
 - **Child field cố định**: `Uuid, Uuidfile, Status, Type, Sequence, {{BUSINESS_FIELDS}}, {{RESULT_FIELDS}}, Messagetype, Criticality, Message, CreatedBy, CreatedAt, LastChangedBy, LocalLastChangedAt, LastChangedAt`.
 - **Alias**: Root = `Root`; child đầu = `Data` / assoc `_Data`; child sau đặt theo nghĩa (`DataSub` / `_DataSub`). Child -> parent luôn là `_File`.
 - **Actions**: Root có `uploadExcel` (static, parameter abstract entity) và `downloadFile` (static, result abstract entity); child có `PostConfirm` (instance, `result [1] $self`, features: instance).
@@ -80,10 +81,12 @@ Service definition / service binding (OData V4 UI) vẫn phải expose `ZC_M_<AP
 - **Giới hạn**: tối đa 100 dòng dữ liệu / file (message lỗi nếu vượt), PostConfirm chạy đồng bộ (không schedule job).
 - **Template Excel**: 4 dòng header (nhóm cột / tên cột / R-O / độ dài), dữ liệu từ dòng 5, sheet dữ liệu ở vị trí 1, các sheet sau chỉ là danh mục tra cứu.
 - **Message class**: thay `Z_FILE_MSG` / số message trong template bằng message class thật của app (001 = quá 100 dòng, 002 = upload thành công).
+- **Comment trong source**: table DDL (`define table`) KHÔNG có comment nào, kể cả `//` cuối dòng field; chỉ dùng `@EndUserText.label`. CDS view / BDEF / MDE / abstract entity: comment `//` được nhưng chỉ ASCII (tiếng Anh, không dấu). ABAP class: comment `"` tiếng Việt được.
 
 ## Những lỗi đã gặp, đừng lặp lại
 
 - Draft table > 16 ký tự -> activate lỗi. Dùng `ztb_d_<x>_d`, không dùng `ztb_d_<app>_<x>_d`.
+- Comment `// ...` trên dòng field của table DDL -> lỗi `Unexpected token "/". Expected was ":"`, có dấu tiếng Việt -> thêm `Unexpected character`. Table không viết comment; giải thích cột để trong README của app.
 - Không đoán tên sheet / sheet thứ 2: mỗi loại template là một FILE riêng, dữ liệu luôn ở sheet 1; loại template lấy từ radio trên dialog (`%param-TemplateType`) và lưu xuống `Root.Templatetype`.
 - Không đoán tên bound action của API SAP: hỏi curl thật. Với `API_FIXEDASSET`: `SAP__self.CreateMasterFixedAsset` tạo tài sản chính, `SAP__self.CreateFixedAsset` tạo sub-number.
 - Curl user gửi thường chứa `Authorization: Basic ...`, CSRF token, cookie: không chép vào code, không lặp lại trong câu trả lời, nhắc user đổi mật khẩu nếu đã lộ.

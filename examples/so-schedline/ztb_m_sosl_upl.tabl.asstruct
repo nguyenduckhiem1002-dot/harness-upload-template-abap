@@ -1,0 +1,22 @@
+@EndUserText.label : 'Manage File Upload Sales Order Schedule Line'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table ztb_m_sosl_upl {
+
+  key client    : abap.clnt not null;
+  key uuid      : sysuuid_x16 not null;
+  zcount        : abap.int4;
+  zcount_done   : abap.int4;
+  status        : abap.char(1);
+  attachment    : zde_attachment;
+  mimetype      : zde_mime_type;
+  filename      : zde_filename;
+  countline     : abap.int4;
+  createdbyuser : abp_creation_user;
+  createddate   : abp_creation_tstmpl;
+  changedbyuser : abp_lastchange_user;
+  changeddate   : abp_lastchange_tstmpl;
+
+}

@@ -1,0 +1,92 @@
+@Metadata.layer: #CORE
+
+@UI.headerInfo: {
+  typeName: 'File Upload',
+  typeNamePlural: 'File Upload List',
+  title: { type: #STANDARD, value: 'Uuid' },
+  description: { type: #STANDARD, value: 'Filename' }
+}
+
+
+annotate entity ZC_M_SOSL_UPL with
+{
+  @UI.facet: [
+    { id: 'Header', purpose: #STANDARD, type: #FIELDGROUP_REFERENCE, label: 'File Information',   targetQualifier: 'Header', position: 10 },
+    { id: 'Data',   purpose: #STANDARD, type: #LINEITEM_REFERENCE,   label: 'Schedule Line List', targetElement: '_Data',    position: 20 }
+  ]
+
+  @EndUserText.label: 'UUID'
+  Uuid;
+
+  @EndUserText.label: 'File Name'
+  @UI: {
+    lineItem:       [ { position: 20, importance: #HIGH } ],
+    identification: [ { position: 10 } ],
+    fieldGroup:     [ { qualifier: 'Header', position: 10 } ]
+  }
+  Filename;
+
+  @UI.selectionField : [{ position: 20 }]
+  @UI.lineItem       : [{ position: 20, label: 'Status' , criticality: 'Criticality' }]
+  @UI.identification : [{ position: 20 }]
+  @UI.fieldGroup     : [ { type: #STANDARD,  position: 30   }]
+  @UI.dataPoint : { title: 'Status', criticality: 'Criticality' }
+  Status;
+
+  @Consumption.filter.hidden: true
+  Criticality;
+
+  @EndUserText.label: 'MIME Type'
+  @UI: {
+    lineItem:       [ { position: 40, importance: #MEDIUM } ],
+    selectionField: [ { position: 20 } ],
+    fieldGroup:     [ { qualifier: 'Header', position: 30 } ]
+  }
+  Mimetype;
+
+  @EndUserText.label: 'File Content'
+  @UI: {
+    lineItem:       [ { position: 30, importance: #LOW } ],
+    selectionField: [ { position: 30 } ],
+    fieldGroup:     [ { qualifier: 'Header', position: 40 } ]
+  }
+  Attachment;
+
+  @EndUserText.label: 'Number of Data Rows'
+  @UI: {
+    lineItem:   [ { position: 50, importance: #MEDIUM } ],
+    fieldGroup: [ { qualifier: 'Header', position: 50 } ]
+  }
+  Countline;
+
+  @EndUserText.label: 'STT'
+  @UI: {
+    lineItem:   [ { position: 10, importance: #MEDIUM } ],
+    fieldGroup: [ { qualifier: 'Header', position: 10 } ]
+  }
+  Zcount;
+
+  @EndUserText.label: 'Lines Processed'
+  @UI: {
+    lineItem:   [ { position: 70, importance: #MEDIUM } ],
+    fieldGroup: [ { qualifier: 'Header', position: 70 } ]
+  }
+  ZcountDone;
+
+  @EndUserText.label: 'Created By'
+  @UI.hidden: true
+  Createdbyuser;
+
+  @EndUserText.label: 'Created On'
+  @UI.hidden: true
+  Createddate;
+
+  @EndUserText.label: 'Changed By'
+  @UI.hidden: true
+  Changedbyuser;
+
+  @EndUserText.label: 'Changed On'
+  @UI.hidden: true
+  Changeddate;
+
+}

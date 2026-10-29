@@ -13,7 +13,7 @@ define view entity {{CHILD_I}}
       type                    as Type,
       sequence                as Sequence,
 
-      // ---------- {{BUSINESS_FIELDS}} (snake_case -> CamelCase, đúng thứ tự cột Excel) ----------
+      // ---------- {{BUSINESS_FIELDS}} (snake_case -> CamelCase, Excel column order) ----------
       // company_code            as CompanyCode,
       // asset_class             as AssetClass,
       // post_capitalization     as PostCapitalization,

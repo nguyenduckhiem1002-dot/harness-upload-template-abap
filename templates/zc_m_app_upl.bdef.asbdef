@@ -4,7 +4,7 @@ use draft;
 
 define behavior for {{ROOT_C}} alias Root
 {
-  //  use create;   // Root chỉ được tạo qua uploadExcel
+  //  use create;   // Root is created only via uploadExcel
   use update;
   use delete;
 
@@ -29,4 +29,4 @@ define behavior for {{CHILD_C}} alias {{CHILD_ALIAS}}
   use association _File { with draft; }
 }
 
-// Child thứ 2 trở đi: copy block trên với ZC_D_<APP>_<X2> alias <Alias2>.
+// Additional child: copy the block above with ZC_D_<APP>_<X2> alias <Alias2>.

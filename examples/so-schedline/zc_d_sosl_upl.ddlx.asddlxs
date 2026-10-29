@@ -1,0 +1,70 @@
+@Metadata.layer: #CUSTOMER
+@UI: {
+  headerInfo: {
+    typeName: 'Schedule Line',
+    typeNamePlural: 'Schedule Lines',
+    title: { type: #STANDARD, value: 'SalesOrder' },
+    description: { type: #STANDARD, value: 'Message' }
+  }
+}
+annotate view ZC_D_SOSL_UPL with
+{
+  @UI.facet: [
+    { id: 'General', purpose: #STANDARD, type: #IDENTIFICATION_REFERENCE, label: 'General', position: 10 },
+    { id: 'Result',  purpose: #STANDARD, type: #FIELDGROUP_REFERENCE,     label: 'Result',  position: 90, targetQualifier: 'Result' }
+  ]
+
+  @UI.hidden: true
+  Uuid;
+  @UI.hidden: true
+  Uuidfile;
+
+  @UI: {
+    lineItem:       [ { position: 10, importance: #HIGH },
+                      { type: #FOR_ACTION, dataAction: 'PostConfirm', label: 'Post Confirm' } ],
+    identification: [ { position: 10 } ]
+  }
+  @EndUserText.label: 'Sequence'
+  Sequence;
+
+  @UI: { lineItem: [{ position: 20, importance: #HIGH }], identification: [{ position: 20 }] }
+  @EndUserText.label: 'Sales Order'
+  SalesOrder;
+
+  @UI: { lineItem: [{ position: 30, importance: #HIGH }], identification: [{ position: 30 }] }
+  @EndUserText.label: 'Sales Order Item'
+  SalesOrderItem;
+
+  @UI: { lineItem: [{ position: 40 }], identification: [{ position: 40 }] }
+  @EndUserText.label: 'Schedule Line'
+  ScheduleLine;
+
+  @UI: { lineItem: [{ position: 45 }], identification: [{ position: 45 }] }
+  @EndUserText.label: 'Action (I/U)'
+  Type;
+
+  @UI: { lineItem: [{ position: 50 }], identification: [{ position: 50 }] }
+  @EndUserText.label: 'Delivery Date'
+  DeliveryDate;
+
+  @UI: { lineItem: [{ position: 60 }], identification: [{ position: 60 }] }
+  @EndUserText.label: 'Order Quantity'
+  OrderQuantity;
+
+  @UI.hidden: true
+  OrderQuantityUnit;
+
+  @UI: { lineItem: [{ position: 65 }], fieldGroup: [{ qualifier: 'Result', position: 10 }] }
+  @EndUserText.label: 'Schedule Line (result)'
+  ScheduleLineResult;
+
+  @UI: { lineItem: [{ position: 70, criticality: 'Criticality' }], fieldGroup: [{ qualifier: 'Result', position: 30, criticality: 'Criticality' }] }
+  Messagetype;
+  @UI: { lineItem: [{ position: 80 }], fieldGroup: [{ qualifier: 'Result', position: 40 }] }
+  Message;
+
+  @UI.hidden: true
+  Criticality;
+  @UI.hidden: true
+  Status;
+}

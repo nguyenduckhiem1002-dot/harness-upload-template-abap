@@ -16,7 +16,8 @@ Cấu trúc:
 SKILL.md                 chuẩn + quy trình (đọc trước)
 reference/               giải thích pattern, naming, Excel, status, checklist
 templates/               object mẫu có placeholder {{...}} (xem reference/02-naming.md)
-examples/fixed-asset/    bộ object thật: Mass Create Fixed Asset (Root + 2 child)
+examples/fixed-asset/    bộ object thật: Mass Create Fixed Asset (Root + 2 child, nhiều template, OData V4)
+examples/so-schedline/   bộ object thật: Sales Order Schedule Line (Root + 1 child, 1 template, OData V2 GET+PATCH)
 tools/read_xlsx.py       dump file .xlsx ra text để đối chiếu cột
 ```
 

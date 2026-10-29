@@ -7,44 +7,14 @@ define table {{CHILD_TBL}} {
 
   key client            : abap.clnt not null;
   key uuid              : sysuuid_x16 not null;
-  key uuidfile          : sysuuid_x16 not null;   // = Root.uuid
-  status                : abap.char(1);           // M/A/X (dự phòng workflow duyệt)
-  type                  : abap.char(1);           // I = insert, U = update
+  key uuidfile          : sysuuid_x16 not null;
+  status                : abap.char(1);
+  type                  : abap.char(1);
   @EndUserText.label : 'Sequence'
-  sequence              : abap.int4;              // STT dòng trong file (cột A nếu template có)
-
-  // ---------- {{BUSINESS_FIELDS}}: 1 cột Excel = 1 field, đúng thứ tự cột ----------
-  // Ưu tiên data element chuẩn SAP khi có (bukrs, kostl, prctr, werks_d, fb_segment, lifnr, anln1, anln2),
-  // còn lại abap.char(n) với n = độ dài ở dòng 4 của template; cờ = abap.char(1) ('X'/''); ngày = abap.dats.
-  // Ví dụ (Fixed Asset):
-  // company_code            : bukrs;
-  // @EndUserText.label : 'Asset Class'
-  // asset_class             : abap.char(8);      // chỉ template chính
-  // master_fixed_asset      : anln1;             // chỉ template sub-number
-  // @EndUserText.label : 'Post Capitalization'
-  // post_capitalization     : abap.char(1);
-  // @EndUserText.label : 'Asset Description'
-  // fixed_asset_description : abap.char(50);
-  // serial_number           : abap.char(18);
-  // order_date              : abap.dats;
-  // eval_group_1            : abap.char(20);
-  // cost_center             : kostl;
-  // profit_center           : prctr;
-  // plant                   : werks_d;
-  // segment                 : fb_segment;
-  // supplier                : lifnr;
-  // ...
-  // useful_life_years       : abap.int4;
-  // useful_life_periods     : abap.int4;
-  // depreciation_start_date : abap.dats;
-
-  // ---------- {{RESULT_FIELDS}}: giá trị API trả về cần lưu lại ----------
-  // fixed_asset             : anln1;
-  // master_fixed_asset      : abap.char(12);
-  // fixed_asset_subnumber   : anln2;
-
-  // ---------- cố định ----------
-  messagetype           : abap.char(1);           // '' / S / E
+  sequence              : abap.int4;
+  {{BUSINESS_FIELDS}}
+  {{RESULT_FIELDS}}
+  messagetype           : abap.char(1);
   message               : abap.char(255);
   created_by            : abp_creation_user;
   created_at            : abp_creation_tstmpl;

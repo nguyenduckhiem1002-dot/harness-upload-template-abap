@@ -1,0 +1,35 @@
+@EndUserText.label : 'Data upload Sales Order Schedule Line'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table ztb_d_sosl_upl {
+
+  key client            : abap.clnt not null;
+  key uuid              : sysuuid_x16 not null;
+  key uuidfile          : sysuuid_x16 not null;
+  status                : abap.char(1);
+  @EndUserText.label : 'Action'
+  type                  : abap.char(1);
+  @EndUserText.label : 'Sequence'
+  sequence              : abap.int4;
+  sales_order           : vbeln_va;
+  sales_order_item      : posnr_va;
+  schedule_line         : etenr;
+  @EndUserText.label : 'Delivery Date'
+  delivery_date         : abap.dats;
+  @EndUserText.label : 'Order Quantity'
+  order_quantity        : abap.dec(15,3);
+  @EndUserText.label : 'Schedule Line (result)'
+  schedule_line_result  : etenr;
+  @EndUserText.label : 'Order Quantity Unit'
+  order_quantity_unit   : abap.unit(3);
+  messagetype           : abap.char(1);
+  message               : abap.char(255);
+  created_by            : abp_creation_user;
+  created_at            : abp_creation_tstmpl;
+  last_changed_by       : abp_locinst_lastchange_user;
+  local_last_changed_at : abp_locinst_lastchange_tstmpl;
+  last_changed_at       : abp_lastchange_tstmpl;
+
+}

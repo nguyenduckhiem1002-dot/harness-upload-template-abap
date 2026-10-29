@@ -74,7 +74,7 @@ etag master LastChangedAt
       Status                = status;
       Type                  = type;
       Sequence              = sequence;
-      // ---------- {{BUSINESS_FIELDS}}: liệt kê đủ từng cặp CamelCase = snake_case ----------
+      // ---------- {{BUSINESS_FIELDS}}: list every pair CamelCase = snake_case ----------
       // CompanyCode           = company_code;
       // AssetClass            = asset_class;
       // ...
@@ -91,4 +91,4 @@ etag master LastChangedAt
     }
 }
 
-// Child thứ 2 trở đi: copy nguyên block trên, đổi {{CHILD_I}}/{{CHILD_ALIAS}}/{{CHILD_TBL}}/{{CHILD_DRAFT}}/mapping.
+// Additional child: copy the block above, replace {{CHILD_I}}/{{CHILD_ALIAS}}/{{CHILD_TBL}}/{{CHILD_DRAFT}}/mapping.

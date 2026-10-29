@@ -38,6 +38,20 @@ Thay TẤT CẢ placeholder trước khi đưa code vào ADT. Cột "Fixed Asset
 | `{{RESULT_FIELDS}}` | field API trả về cần lưu | `FixedAsset, MasterFixedAsset` | `FixedAsset, FixedAssetSubnumber` |
 | `{{KEY_COLS_NOT_EMPTY}}` | cột dùng để loại dòng trống | `CompanyCode, AssetClass` | `CompanyCode, MasterFixedAsset` |
 
+## Table Root: `templatetype` là tuỳ chọn
+
+Template `ztb_m_app_upl.tabl.asstruct` có sẵn 2 dòng `@EndUserText.label : 'Template Type'` / `templatetype : abap.char(1);` cho app nhiều template.
+App chỉ có 1 template: xoá 2 dòng đó và mọi chỗ `Templatetype` ở view/projection/BDEF/MDE/`lhc_Root` (xem SKILL.md mục Quy ước).
+
+## Điền `{{BUSINESS_FIELDS}}` / `{{RESULT_FIELDS}}` trong table child
+
+Table DDL không được có comment, nên hướng dẫn để ở đây thay vì trong template:
+
+- 1 cột Excel = 1 field, đúng thứ tự cột; tên snake_case; nhãn bằng `@EndUserText.label : '...'` ngay trên field (không dùng `//`).
+- Ưu tiên data element chuẩn SAP khi có: `bukrs`, `kostl`, `prctr`, `werks_d`, `fb_segment`, `lifnr`, `anln1`, `anln2`, `vbeln_va`, `posnr_va`, `etenr`. Còn lại `abap.char(n)` với n = độ dài ở dòng 4 của template; cờ `abap.char(1)` ('X'/''); ngày `abap.dats`; số nguyên `abap.int4`; số lượng `abap.dec(15,3)` + `abap.unit(3)` nếu API trả unit.
+- `{{RESULT_FIELDS}}`: field API trả về cần lưu, đặt tên theo property OData (`fixed_asset : anln1`, `fixed_asset_subnumber : anln2`, `schedule_line_result : etenr`).
+- Ví dụ đầy đủ: `examples/fixed-asset/ztb_d_mch_fa_upl.tabl.asstruct`, `examples/fixed-asset/ztb_d_mch_fasupl.tabl.asstruct`.
+
 ## Quy tắc
 
 1. **Prefix cố định**
