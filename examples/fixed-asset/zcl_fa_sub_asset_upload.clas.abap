@@ -82,6 +82,17 @@ CLASS zcl_fa_sub_asset_upload DEFINITION
   PRIVATE SECTION.
     TYPES tt_fragment TYPE STANDARD TABLE OF string WITH EMPTY KEY.
 
+    "! Tra tài sản chính trong I_FixedAsset theo CompanyCode + MasterFixedAsset.
+    "! rv_found = abap_false khi không tồn tại; ev_inventory_is_counted = cờ Inventory của tài sản chính.
+    CLASS-METHODS read_master_asset
+      IMPORTING
+        iv_company_code             TYPE string
+        iv_master_fixed_asset       TYPE string
+      EXPORTING
+        ev_inventory_is_counted     TYPE abap_bool
+      RETURNING
+        VALUE(rv_found)             TYPE abap_bool.
+
     CLASS-METHODS build_payload
       IMPORTING
         is_sub         TYPE ty_sub_asset_input
@@ -143,11 +154,19 @@ CLASS zcl_fa_sub_asset_upload IMPLEMENTATION.
 
 
   METHOD create_subnumbers.
-    LOOP AT it_sub_data INTO DATA(ls_sub).
-      DATA(ls_result) = VALUE ty_result( row_id             = ls_sub-row_id
-                                          company_code       = ls_sub-company_code
-                                          master_fixed_asset = ls_sub-master_fixed_asset
-                                          description        = ls_sub-fixed_asset_description ).
+    DATA ls_sub               TYPE ty_sub_asset_input.
+    DATA ls_result            TYPE ty_result.
+    DATA lv_master_found      TYPE abap_bool.
+    DATA lv_master_inv_flag   TYPE abap_bool.
+    DATA lv_payload           TYPE string.
+    DATA lv_body              TYPE string.
+
+    LOOP AT it_sub_data INTO ls_sub.
+      CLEAR ls_result.
+      ls_result-row_id             = ls_sub-row_id.
+      ls_result-company_code       = ls_sub-company_code.
+      ls_result-master_fixed_asset = ls_sub-master_fixed_asset.
+      ls_result-description        = ls_sub-fixed_asset_description.
 
       " Sub-number bắt buộc phải có tài sản chính - chặn sớm, không gọi API
       IF ls_sub-master_fixed_asset IS INITIAL.
@@ -157,15 +176,29 @@ CLASS zcl_fa_sub_asset_upload IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      DATA(lv_payload) = build_payload( is_sub        = ls_sub
-                                         it_ledger_cfg = it_ledger_cfg ).
+      " Tra tài sản chính trong I_FixedAsset: không có -> lỗi; có -> lấy cờ Inventory để sub-number kế thừa
+      lv_master_found = read_master_asset( EXPORTING iv_company_code         = ls_sub-company_code
+                                                     iv_master_fixed_asset   = ls_sub-master_fixed_asset
+                                           IMPORTING ev_inventory_is_counted = lv_master_inv_flag ).
+      IF lv_master_found = abap_false.
+        ls_result-success = abap_false.
+        ls_result-message = |Master fixed asset { ls_sub-master_fixed_asset } not found in company code { ls_sub-company_code }|.
+        APPEND ls_result TO rt_result.
+        CONTINUE.
+      ENDIF.
 
-      DATA(lv_body) = zcl_call_api=>call_api(
-                         iv_body        = lv_payload
-                         iv_contentType = 'application/json;odata.metadata=minimal;charset=utf-8'
-                         iv_endpoint    = gc_endpoint
-                         iv_uri         = |{ gc_endpoint }/SAP__self.{ gc_action_create_sub }|
-                         iv_method      = 'POST' ).
+      " InventoryIsCounted của sub-number = của tài sản chính, không lấy từ Excel
+      ls_sub-inventory_is_counted = lv_master_inv_flag.
+
+      lv_payload = build_payload( is_sub        = ls_sub
+                                  it_ledger_cfg = it_ledger_cfg ).
+
+      lv_body = zcl_call_api=>call_api(
+                  iv_body        = lv_payload
+                  iv_contentType = 'application/json;odata.metadata=minimal;charset=utf-8'
+                  iv_endpoint    = gc_endpoint
+                  iv_uri         = |{ gc_endpoint }/SAP__self.{ gc_action_create_sub }|
+                  iv_method      = 'POST' ).
 
       parse_response(
         EXPORTING
@@ -176,6 +209,33 @@ CLASS zcl_fa_sub_asset_upload IMPLEMENTATION.
 
       APPEND ls_result TO rt_result.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD read_master_asset.
+    DATA lv_company_code TYPE bukrs.
+    DATA lv_master       TYPE anln1.
+    DATA lv_flag         TYPE abap_bool.
+
+    CLEAR ev_inventory_is_counted.
+    rv_found = abap_false.
+
+    lv_company_code = iv_company_code.
+    lv_master       = iv_master_fixed_asset.
+    " Excel có thể nhập '10000000' -> I_FixedAsset lưu '000010000000'
+    lv_master       = |{ lv_master ALPHA = IN }|.
+
+    " Tài sản chính có FixedAsset (sub-number) nhỏ nhất = '0000'; ORDER BY để chắc chắn lấy đúng dòng chính
+    SELECT inventoryiscounted
+      FROM i_fixedasset
+      WHERE companycode      = @lv_company_code
+        AND masterfixedasset = @lv_master
+      ORDER BY fixedasset
+      INTO @lv_flag
+      UP TO 1 ROWS.
+      rv_found = abap_true.
+      ev_inventory_is_counted = lv_flag.
+    ENDSELECT.
   ENDMETHOD.
 
 
@@ -265,16 +325,15 @@ CLASS zcl_fa_sub_asset_upload IMPLEMENTATION.
     APPEND field( iv_key = 'AssetLocation' iv_value = is_sub-asset_location ) TO lt_acct.
     APPEND |"_AccountAssignment":{ as_object( lt_acct ) }| TO lt_root.
 
-    " ---------- _Inventory (optional) ----------
-    IF is_sub-inventory_number IS NOT INITIAL OR is_sub-inventory_note IS NOT INITIAL
-       OR is_sub-inventory_is_counted IS NOT INITIAL OR is_sub-last_inventory_date IS NOT INITIAL.
-      APPEND field( iv_key = 'Inventory' iv_value = is_sub-inventory_number ) TO lt_inv.
-      APPEND field( iv_key = 'InventoryIsCounted'
-                     iv_value = format_bool( is_sub-inventory_is_counted ) iv_raw = abap_true ) TO lt_inv.
-      APPEND field( iv_key = 'InventoryNote'     iv_value = is_sub-inventory_note ) TO lt_inv.
-      APPEND field( iv_key = 'LastInventoryDate' iv_value = format_date( is_sub-last_inventory_date ) ) TO lt_inv.
-      APPEND |"_Inventory":{ as_object( lt_inv ) }| TO lt_root.
-    ENDIF.
+    " ---------- _Inventory ----------
+    " Luôn gửi InventoryIsCounted (đã gán = cờ của tài sản chính trong create_subnumbers);
+    " các field Inventory khác chỉ gửi khi có dữ liệu (field() tự bỏ giá trị rỗng).
+    APPEND field( iv_key = 'InventoryIsCounted'
+                   iv_value = format_bool( is_sub-inventory_is_counted ) iv_raw = abap_true ) TO lt_inv.
+    APPEND field( iv_key = 'Inventory'         iv_value = is_sub-inventory_number ) TO lt_inv.
+    APPEND field( iv_key = 'InventoryNote'     iv_value = is_sub-inventory_note ) TO lt_inv.
+    APPEND field( iv_key = 'LastInventoryDate' iv_value = format_date( is_sub-last_inventory_date ) ) TO lt_inv.
+    APPEND |"_Inventory":{ as_object( lt_inv ) }| TO lt_root.
 
     " ---------- _Origin (optional) ----------
     IF is_sub-supplier IS NOT INITIAL OR is_sub-manufacturer_name IS NOT INITIAL
